@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tech Articles</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- LEFT NAV: list of articles -->
+  <nav class="sidebar">
+    <h2 class="sidebar__title">Articles</h2>
+    <ul class="sidebar__list">
+      <li><a class="sidebar__link is-active" href="articles/intro-to-rust.html" target="article-frame">Intro to Rust</a></li>
+      <li><a class="sidebar__link" href="articles/css-grid-guide.html" target="article-frame">CSS Grid Guide</a></li>
+      <li><a class="sidebar__link" href="articles/docker-basics.html" target="article-frame">Docker Basics</a></li>
+      <li><a class="sidebar__link" href="articles/postgres-indexing.html" target="article-frame">Postgres Indexing</a></li>
+      <li><a class="sidebar__link" href="articles/oauth-2-1.html" target="article-frame">OAuth 2.1</a></li>
+      <li><a class="sidebar__link" href="articles/webgpu-intro.html" target="article-frame">WebGPU Intro</a></li>
+    </ul>
+  </nav>
+
+  <!-- CONTENT: loads an HTML page -->
+  <main class="content">
+    <iframe class="content__frame" name="article-frame" src="articles/intro-to-rust.html" title="Article content"></iframe>
+  </main>
+
+  <script>
+    // Highlight the clicked link as active
+    document.querySelectorAll('.sidebar__link').forEach(link => {
+      link.addEventListener('click', () => {
+        document.querySelectorAll('.sidebar__link').forEach(l => l.classList.remove('is-active'));
+        link.classList.add('is-active');
+      });
+    });
+  </script>
+
+</body>
+</html>
