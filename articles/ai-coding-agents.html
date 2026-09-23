@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Coding Agents: The Shift from Autocomplete to Engineering</title>
+  <style>
+    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: #0f172a; line-height: 1.7; max-width: 900px; margin: 0 auto; padding: 2.5rem; }
+    h1 { line-height: 1.15; margin-bottom: 0.75rem; }
+    h2 { margin-top: 2rem; }
+    p, li { color: #334155; }
+    .meta { color: #64748b; margin-bottom: 2rem; }
+    code { background: #f1f5f9; padding: 0.15rem 0.35rem; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <article>
+    <h1>AI Coding Agents: The Shift from Autocomplete to Engineering</h1>
+    <p class="meta">Software / AI · A practical look at what changes when AI can work across a codebase</p>
+
+    <p>AI-assisted programming started with autocomplete: suggest the next line, finish a function, or generate a small snippet. The more interesting shift is toward <strong>coding agents</strong> that can inspect a repository, make a plan, edit several files, run tools, interpret failures and iterate.</p>
+
+    <p>That changes the useful unit of AI assistance. Instead of asking, “What code should I type?”, the developer can ask, “What needs to change, and how can we verify it?”</p>
+
+    <h2>The repository becomes the context</h2>
+    <p>A good agent needs more than the file currently open in an editor. It needs to understand conventions, dependencies, tests, build scripts, configuration and the relationships between modules.</p>
+
+    <p>This makes repository structure and developer tooling unexpectedly important. Clear boundaries, predictable scripts, useful tests and good documentation are not just conveniences for humans; they make an AI agent easier to steer and easier to verify.</p>
+
+    <h2>Planning matters more than typing</h2>
+    <p>For a non-trivial change, an agent typically works through a loop:</p>
+    <ol>
+      <li>Inspect the relevant code and configuration.</li>
+      <li>Form a plan and identify likely affected files.</li>
+      <li>Make a small set of changes.</li>
+      <li>Run tests, type checks, linting or other validation.</li>
+      <li>Use the results to correct the implementation.</li>
+    </ol>
+
+    <p>The developer's role moves upward. Reviewing the plan, defining constraints and checking the result become at least as important as producing individual lines of code.</p>
+
+    <h2>Verification becomes the limiting factor</h2>
+    <p>Generating code is increasingly cheap. Knowing that the generated change is correct is not.</p>
+
+    <p>That puts pressure on automated feedback: unit tests, integration tests, type checking, static analysis, preview environments and small reproducible commands. An agent that can run these checks can turn failures into useful feedback; an agent without reliable verification can simply produce plausible-looking code.</p>
+
+    <h2>What this means for senior developers</h2>
+    <p>The valuable skills do not disappear. They become more leverageable.</p>
+
+    <ul>
+      <li><strong>Architecture:</strong> deciding where a change belongs and what boundaries should remain intact.</li>
+      <li><strong>Requirements:</strong> turning an ambiguous request into explicit constraints and acceptance criteria.</li>
+      <li><strong>Debugging:</strong> recognising whether a failure is caused by code, configuration, data or the environment.</li>
+      <li><strong>Review:</strong> spotting subtle correctness, security, performance and maintainability problems.</li>
+      <li><strong>Tooling:</strong> giving agents safe access to repositories, tests, documentation and deployment workflows.</li>
+    </ul>
+
+    <h2>A useful experiment</h2>
+    <p>Pick a small feature in a real project and give an agent a deliberately outcome-focused task rather than a list of edits. For example: “Add validation for this form, preserve the existing UI, add tests for the edge cases, and run the project's normal checks.”</p>
+
+    <p>Then review the entire change, including what the agent did <em>not</em> change. That last part is important: engineering judgement still includes knowing what should stay untouched.</p>
+
+    <h2>The bigger idea</h2>
+    <p>Coding agents are not simply faster autocomplete. They are a new interface to software engineering: one where the developer increasingly specifies intent, constraints and evidence, while the machine handles more of the mechanical implementation loop.</p>
+
+    <p>The practical advantage comes from combining the two. Give the agent enough autonomy to do useful work, but surround that autonomy with strong repository conventions, explicit boundaries and automated verification.</p>
+  </article>
+</body>
+</html>
