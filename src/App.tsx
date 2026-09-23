@@ -1,57 +1,10 @@
 import { useEffect, useState } from 'react';
-import { NavLink, Route, Routes, useLocation } from 'react-router-dom';
+import { Route, Routes, useLocation } from 'react-router-dom';
 import { articles } from './articles';
- 
-function Home() {
-  return (
-    <section className="home">
-      <div className="home__eyebrow">
-        <span />
-        Developer journal
-      </div>
-      <h1>
-        How does
-        <br />
-        <em>software</em>
-        <br />
-        work?
-      </h1>
-      <p className="home__intro">
-        Tech Notes is a collection of deep dives into the systems, languages,
-        protocols and ideas underneath modern software. Technical, practical
-        and occasionally gloriously geeky.
-      </p>
-      <div className="home__actions">
-        <NavLink className="home__button" to={`/articles/${articles[0].slug}`}>
-          Read latest article →
-        </NavLink>
-        <a className="home__button home__button--secondary" href="#library">
-          Browse the library
-        </a>
-      </div>
-      <div id="library" className="home__section-title">
-        Latest notes
-      </div>
-      <div className="home__cards">
-        {articles.map((article, index) => (
-          <NavLink
-            key={article.slug}
-            className="home__card"
-            to={`/articles/${article.slug}`}
-          >
-            <span className="home__card-number">
-              {String(index + 1).padStart(2, '0')} · {article.category.toUpperCase()}
-            </span>
-            <h2>{article.title}</h2>
-            <p>{article.description}</p>
-            <span className="home__card-arrow">Read deep dive →</span>
-          </NavLink>
-        ))}
-      </div>
-      <p className="home__note">New notes will appear here as the library grows.</p>
-    </section>
-  );
-}
+import { SiteHeader } from './components/SiteHeader';
+import { SiteNavigation } from './components/SiteNavigation';
+import { SiteFooter } from './components/SiteFooter';
+import { Home } from './pages/Home';
 
 export default function App() {
   const location = useLocation();
@@ -73,71 +26,19 @@ export default function App() {
 
   return (
     <>
-      <header className="site-header">
-        <button
-          className="menu-toggle"
-          aria-label={open ? 'Close article menu' : 'Open article menu'}
-          aria-expanded={open}
-          onClick={() => setOpen((value) => !value)}
-        >
-          <span />
-          <span />
-          <span />
-        </button>
-
-        <NavLink className="brand" to="/">
-          <span className="brand__mark">&lt;/&gt;</span>
-          <span>
-            <span className="brand__name">Tech Notes</span>
-            <span className="brand__tagline">by Steven Cranfield</span>
-          </span>
-        </NavLink>
-
-        <div className="header-actions">
-          <button
-            className="theme-toggle"
-            aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-            onClick={() => setTheme((value) => (value === 'dark' ? 'light' : 'dark'))}
-          >
-            <span className="theme-toggle__icon">{theme === 'light' ? '☾' : '☀'}</span>
-          </button>
-          <span className="brand__status">
-            <span /> Developer journal
-          </span>
-        </div>
-      </header>
+      <SiteHeader
+        theme={theme}
+        onThemeChange={() => setTheme((value) => (value === 'dark' ? 'light' : 'dark'))}
+        menuOpen={open}
+        onMenuToggle={() => setOpen((value) => !value)}
+      />
 
       <div className="app-shell">
-        <nav className={`sidebar ${open ? 'is-open' : ''}`}>
-          <div className="sidebar__heading">
-            <span>Library</span>
-            <span className="sidebar__count">{String(articles.length).padStart(2, '0')}</span>
-          </div>
-
-          <ul className="sidebar__list">
-            {articles.map((article, index) => (
-              <li key={article.slug}>
-                <NavLink className="sidebar__link" to={`/articles/${article.slug}`}>
-                  <span className="sidebar__number">
-                    {String(index + 1).padStart(2, '0')}
-                  </span>
-                  <span className="sidebar__copy">
-                    <strong>{article.title}</strong>
-                    <small>{article.subtitle}</small>
-                  </span>
-                </NavLink>
-              </li>
-            ))}
-          </ul>
-        </nav>
-
-        {open && (
-          <button
-            className="nav-backdrop"
-            aria-label="Close article menu"
-            onClick={() => setOpen(false)}
-          />
-        )}
+        <SiteNavigation
+          articles={articles}
+          open={open}
+          onClose={() => setOpen(false)}
+        />
 
         <main className="content">
           <Routes>
@@ -157,7 +58,7 @@ export default function App() {
         </main>
       </div>
 
-      <footer className="site-footer">Tech Notes · by Steven Cranfield</footer>
+      <SiteFooter />
     </>
   );
 }
