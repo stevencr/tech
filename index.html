@@ -23,28 +23,10 @@
 
     <div class="header-actions">
       <div class="theme-picker">
-        <button class="theme-toggle" type="button" aria-label="Choose theme" aria-expanded="false">
-          <span class="theme-toggle__swatch"></span>
-          <span class="theme-toggle__label">Theme</span>
-          <span class="theme-toggle__chevron">⌄</span>
+        <button class="theme-toggle" type="button" aria-label="Toggle light and dark mode" aria-pressed="false">
+          <span class="theme-toggle__icon" aria-hidden="true">☾</span>
+          <span class="theme-toggle__label">Dark</span>
         </button>
-        <div class="theme-menu" role="menu" aria-label="Themes">
-          <button class="theme-option is-selected" type="button" data-theme="midnight" role="menuitem">
-            <span class="theme-swatch theme-swatch--midnight"></span><span><strong>Midnight</strong><small>Focused &amp; dark</small></span>
-          </button>
-          <button class="theme-option" type="button" data-theme="nord" role="menuitem">
-            <span class="theme-swatch theme-swatch--nord"></span><span><strong>Nord</strong><small>Cool &amp; calm</small></span>
-          </button>
-          <button class="theme-option" type="button" data-theme="light" role="menuitem">
-            <span class="theme-swatch theme-swatch--light"></span><span><strong>Light</strong><small>Clean &amp; bright</small></span>
-          </button>
-          <button class="theme-option" type="button" data-theme="mono" role="menuitem">
-            <span class="theme-swatch theme-swatch--mono"></span><span><strong>Mono</strong><small>Minimal &amp; crisp</small></span>
-          </button>
-          <button class="theme-option" type="button" data-theme="neon" role="menuitem">
-            <span class="theme-swatch theme-swatch--neon"></span><span><strong>Neon</strong><small>Retro terminal</small></span>
-          </button>
-        </div>
       </div>
       <span class="brand__status"><span></span> Developer journal</span>
     </div>
@@ -85,27 +67,17 @@
     const sidebar = document.querySelector('.sidebar');
     const links = document.querySelectorAll('.sidebar__link');
     const themeToggle = document.querySelector('.theme-toggle');
-    const themeMenu = document.querySelector('.theme-menu');
-    const themeOptions = document.querySelectorAll('.theme-option');
-    const frame = document.querySelector('.content__frame');
+        const frame = document.querySelector('.content__frame');
 
     const themes = {
-      midnight: { bg:'#080b14', surface:'#101522', hover:'#1a2235', text:'#f5f7fb', muted:'#8f9bb0', accent:'#8b96ff', bright:'#b3baff', cyan:'#56d9ff' },
-      nord: { bg:'#20252d', surface:'#2b323d', hover:'#3b4655', text:'#eceff4', muted:'#aab4c3', accent:'#88c0d0', bright:'#8fbcbb', cyan:'#81a1c1' },
-      light: { bg:'#f7f8fc', surface:'#ffffff', hover:'#eef1f7', text:'#18202f', muted:'#667085', accent:'#4f46e5', bright:'#3730a3', cyan:'#0891b2' },
-      mono: { bg:'#111111', surface:'#191919', hover:'#2b2b2b', text:'#f4f4f4', muted:'#999999', accent:'#ffffff', bright:'#ffffff', cyan:'#cccccc' },
-      neon: { bg:'#090011', surface:'#160020', hover:'#2d0040', text:'#f7eaff', muted:'#ad8bb8', accent:'#ff4fd8', bright:'#7dffea', cyan:'#00e5ff' }
+      dark: { bg:'#080b14', surface:'#101522', hover:'#1a2235', text:'#f5f7fb', muted:'#8f9bb0', accent:'#8b96ff', bright:'#b3baff', cyan:'#56d9ff' },
+      light: { bg:'#f6f7fb', surface:'#ffffff', hover:'#eef1f7', text:'#18202f', muted:'#667085', accent:'#4f46e5', bright:'#3730a3', cyan:'#0891b2' }
     };
 
     function setMenu(open) {
       document.body.classList.toggle('nav-open', open);
       menuToggle.setAttribute('aria-expanded', String(open));
       menuToggle.setAttribute('aria-label', open ? 'Close article menu' : 'Open article menu');
-    }
-
-    function setThemeMenu(open) {
-      themeMenu.classList.toggle('is-open', open);
-      themeToggle.setAttribute('aria-expanded', String(open));
     }
 
     function applyTheme(name) {
@@ -115,8 +87,10 @@
         document.documentElement.style.setProperty('--' + key.replace('bright','accent-bright').replace('muted','text-muted'), value);
       });
       document.documentElement.style.setProperty('--accent-soft', theme.accent + '20');
-      themeOptions.forEach(option => option.classList.toggle('is-selected', option.dataset.theme === name));
-      localStorage.setItem('tech-notes-theme', name);
+            localStorage.setItem('tech-notes-theme', name);
+      themeToggle.setAttribute('aria-pressed', String(name === 'light'));
+      themeToggle.querySelector('.theme-toggle__icon').textContent = name === 'light' ? '☀' : '☾';
+      themeToggle.querySelector('.theme-toggle__label').textContent = name === 'light' ? 'Light' : 'Dark';
       document.querySelector('meta[name="theme-color"]').content = theme.bg;
       syncArticleTheme();
     }
@@ -150,29 +124,12 @@
       link.classList.add('is-active');
       setMenu(false);
     }));
-    themeToggle.addEventListener('click', event => {
-      event.stopPropagation();
-      setThemeMenu(!themeMenu.classList.contains('is-open'));
-    });
-    themeOptions.forEach(option => option.addEventListener('click', () => {
-      applyTheme(option.dataset.theme);
-      setThemeMenu(false);
-    }));
-    document.addEventListener('keydown', event => {
-      if (event.key === 'Escape') {
-        setMenu(false);
-        setThemeMenu(false);
-      }
-    });
-    document.addEventListener('click', event => {
-      if (document.body.classList.contains('nav-open') && !sidebar.contains(event.target) && !menuToggle.contains(event.target)) setMenu(false);
-      if (!themeMenu.contains(event.target) && !themeToggle.contains(event.target)) setThemeMenu(false);
-    });
+    themeToggle.addEventListener('click', () => applyTheme((document.documentElement.dataset.theme || 'dark') === 'dark' ? 'light' : 'dark'));
     window.addEventListener('resize', () => {
       if (window.innerWidth >= 700) setMenu(false);
     });
     frame.addEventListener('load', syncArticleTheme);
-    applyTheme(localStorage.getItem('tech-notes-theme') || 'midnight');
+    applyTheme(localStorage.getItem('tech-notes-theme') === 'light' ? 'light' : 'dark');
   </script>
 </body>
 </html>
