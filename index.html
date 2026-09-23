@@ -8,22 +8,18 @@
 </head>
 <body>
 
-  <!-- LEFT NAV: list of articles -->
   <nav class="sidebar">
     <h2 class="sidebar__title">Articles</h2>
     <ul class="sidebar__list">
-      <li><a class="sidebar__link is-active" href="articles/intro.html" target="article-frame">Intro</a></li>
-      
+      <li><a class="sidebar__link is-active" href="articles/ai-coding-agents.html" target="article-frame">AI Coding Agents</a></li>
     </ul>
   </nav>
 
-  <!-- CONTENT: loads an HTML page -->
   <main class="content">
-    <iframe class="content__frame" name="article-frame" src="articles/intro-to-rust.html" title="Article content"></iframe>
+    <iframe class="content__frame" name="article-frame" src="articles/ai-coding-agents.html" title="Article content"></iframe>
   </main>
 
   <script>
-    // Highlight the clicked link as active
     document.querySelectorAll('.sidebar__link').forEach(link => {
       link.addEventListener('click', () => {
         document.querySelectorAll('.sidebar__link').forEach(l => l.classList.remove('is-active'));
