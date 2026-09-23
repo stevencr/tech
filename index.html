@@ -90,43 +90,42 @@
     const frame = document.querySelector('.content__frame');
 
     const themes = {
-      midnight: { bg: '#080b14', surface: '#101522', raised: '#151b2b', hover: '#1a2235', text: '#f5f7fb', muted: '#8f9bb0', accent: '#8b96ff', bright: '#b3baff', cyan: '#56d9ff', articleBg: '#080b14', articleText: '#334155', articleHeading: '#0f172a' },
-      nord: { bg: '#20252d', surface: '#2b323d', raised: '#343d4a', hover: '#3b4655', text: '#eceff4', muted: '#aab4c3', accent: '#88c0d0', bright: '#8fbcbb', cyan: '#81a1c1', articleBg: '#eceff4', articleText: '#3b4252', articleHeading: '#2e3440' },
-      solar: { bg: '#fdf6e3', surface: '#f7efd5', raised: '#eee5c9', hover: '#e6dcc0', text: '#34424a', muted: '#7b817b', accent: '#b58900', bright: '#cb4b16', cyan: '#2aa198', articleBg: '#fdf6e3', articleText: '#586e75', articleHeading: '#073642' },
-      mono: { bg: '#111111', surface: '#191919', raised: '#222222', hover: '#2b2b2b', text: '#f4f4f4', muted: '#999999', accent: '#ffffff', bright: '#ffffff', cyan: '#cccccc', articleBg: '#111111', articleText: '#bdbdbd', articleHeading: '#f4f4f4' },
-      neon: { bg: '#090011', surface: '#160020', raised: '#21002f', hover: '#2d0040', text: '#f7eaff', muted: '#ad8bb8', accent: '#ff4fd8', bright: '#7dffea', cyan: '#00e5ff', articleBg: '#090011', articleText: '#d2b8dc', articleHeading: '#fff0ff' }
+      midnight: { bg:'#080b14', surface:'#101522', hover:'#1a2235', text:'#f5f7fb', muted:'#8f9bb0', accent:'#8b96ff', bright:'#b3baff', cyan:'#56d9ff' },
+      nord: { bg:'#20252d', surface:'#2b323d', hover:'#3b4655', text:'#eceff4', muted:'#aab4c3', accent:'#88c0d0', bright:'#8fbcbb', cyan:'#81a1c1' },
+      solar: { bg:'#fdf6e3', surface:'#f7efd5', hover:'#e6dcc0', text:'#34424a', muted:'#7b817b', accent:'#b58900', bright:'#cb4b16', cyan:'#2aa198' },
+      mono: { bg:'#111111', surface:'#191919', hover:'#2b2b2b', text:'#f4f4f4', muted:'#999999', accent:'#ffffff', bright:'#ffffff', cyan:'#cccccc' },
+      neon: { bg:'#090011', surface:'#160020', hover:'#2d0040', text:'#f7eaff', muted:'#ad8bb8', accent:'#ff4fd8', bright:'#7dffea', cyan:'#00e5ff' }
     };
 
-    const setMenu = (open) => {
+    function setMenu(open) {
       document.body.classList.toggle('nav-open', open);
       menuToggle.setAttribute('aria-expanded', String(open));
       menuToggle.setAttribute('aria-label', open ? 'Close article menu' : 'Open article menu');
-    };
+    }
 
-    const setThemeMenu = (open) => {
+    function setThemeMenu(open) {
       themeMenu.classList.toggle('is-open', open);
       themeToggle.setAttribute('aria-expanded', String(open));
-    };
+    }
 
-    const applyTheme = (name) => {
+    function applyTheme(name) {
       const theme = themes[name] || themes.midnight;
       document.documentElement.dataset.theme = name;
       Object.entries(theme).forEach(([key, value]) => {
-        const cssName = {bg:'--bg',surface:'--surface',raised:'--surface-raised',hover:'--surface-hover',text:'--text',muted:'--text-muted',accent:'--accent',bright:'--accent-bright',cyan:'--cyan'}[key];
-        if (cssName) document.documentElement.style.setProperty(cssName, value);
+        document.documentElement.style.setProperty('--' + key.replace('bright','accent-bright').replace('muted','text-muted'), value);
       });
+      document.documentElement.style.setProperty('--accent-soft', theme.accent + '20');
       themeOptions.forEach(option => option.classList.toggle('is-selected', option.dataset.theme === name));
       localStorage.setItem('tech-notes-theme', name);
-      document.querySelector('meta[name="theme-color"]').setAttribute('content', theme.bg);
+      document.querySelector('meta[name="theme-color"]').content = theme.bg;
       syncArticleTheme();
-    };
+    }
 
-    const syncArticleTheme = () => {
+    function syncArticleTheme() {
       try {
         const doc = frame.contentDocument;
         if (!doc) return;
-        const name = document.documentElement.dataset.theme || 'midnight';
-        const theme = themes[name];
+        const theme = themes[document.documentElement.dataset.theme] || themes.midnight;
         let style = doc.getElementById('tech-notes-theme');
         if (!style) {
           style = doc.createElement('style');
@@ -134,16 +133,16 @@
           doc.head.appendChild(style);
         }
         style.textContent = `
-          body { background: ${theme.articleBg} !important; color: ${theme.articleText} !important; }
-          h1, h2, h3, strong { color: ${theme.articleHeading} !important; }
-          p, li { color: ${theme.articleText} !important; }
+          :root { color-scheme: ${theme.bg === '#fdf6e3' ? 'light' : 'dark'}; }
+          body { background: ${theme.bg} !important; color: ${theme.text} !important; }
+          h1, h2, h3, strong { color: ${theme.text} !important; }
+          p, li { color: ${theme.muted} !important; }
           .meta { color: ${theme.muted} !important; }
           code { background: ${theme.surface} !important; color: ${theme.text} !important; }
-          pre { background: ${theme.surface} !important; color: ${theme.text} !important; border-color: rgba(127,127,127,.25) !important; }
-          a { color: ${theme.accent} !important; }
+          pre { background: ${theme.surface} !important; color: ${theme.text} !important; }
         `;
       } catch (_) {}
-    };
+    }
 
     menuToggle.addEventListener('click', () => setMenu(!document.body.classList.contains('nav-open')));
     links.forEach(link => link.addEventListener('click', () => {
@@ -151,7 +150,7 @@
       link.classList.add('is-active');
       setMenu(false);
     }));
-    themeToggle.addEventListener('click', (event) => {
+    themeToggle.addEventListener('click', event => {
       event.stopPropagation();
       setThemeMenu(!themeMenu.classList.contains('is-open'));
     });
@@ -160,17 +159,19 @@
       setThemeMenu(false);
     }));
     document.addEventListener('keydown', event => {
-      if (event.key === 'Escape') { setMenu(false); setThemeMenu(false); }
+      if (event.key === 'Escape') {
+        setMenu(false);
+        setThemeMenu(false);
+      }
     });
     document.addEventListener('click', event => {
       if (document.body.classList.contains('nav-open') && !sidebar.contains(event.target) && !menuToggle.contains(event.target)) setMenu(false);
       if (!themeMenu.contains(event.target) && !themeToggle.contains(event.target)) setThemeMenu(false);
     });
-    window.addEventListener('resize', () => { if (window.innerWidth >= 700) setMenu(false); });
+    window.addEventListener('resize', () => {
+      if (window.innerWidth >= 700) setMenu(false);
+    });
     frame.addEventListener('load', syncArticleTheme);
-
-    const savedTheme = localStorage.getItem('tech-notes-theme') || 'midnight';
-    applyTheme(savedTheme);
-  </script>
-</body>
+    applyTheme(localStorage.getItem('tech-notes-theme') || 'midnight');
+  </script>/body>
 </html>
