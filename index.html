@@ -43,41 +43,65 @@
     </div>
   </header>
 
-  <main class="content">
-    <section class="home" aria-labelledby="home-title">
-      <div class="home__eyebrow"><span></span>Developer journal</div>
-      <h1>Curious about how<br><em>software really works?</em></h1>
-      <p class="home__intro">Tech Notes is a collection of deep dives into the systems, languages, protocols and ideas underneath modern software. Technical, practical and occasionally gloriously geeky.</p>
-      <div class="home__actions">
-        <a class="home__button" href="articles/usb-serial-communications.html">Read latest article →</a>
-        <a class="home__button home__button--secondary" href="#library">Browse the library</a>
-      </div>
+  <div class="app-shell">
+    <nav class="sidebar" id="article-nav" aria-label="Articles">
+      <div class="sidebar__heading"><span>Library</span><span class="sidebar__count">02</span></div>
+      <ul class="sidebar__list">
+        <li>
+          <a class="sidebar__link" href="articles/usb-serial-communications.html">
+            <span class="sidebar__number">01</span>
+            <span class="sidebar__copy"><strong>USB &amp; Serial Comms</strong><small>Protocols under the cable</small></span>
+          </a>
+        </li>
+        <li>
+          <a class="sidebar__link" href="articles/advanced-typescript.html">
+            <span class="sidebar__number">02</span>
+            <span class="sidebar__copy"><strong>Advanced TypeScript</strong><small>The type system under the hood</small></span>
+          </a>
+        </li>
+      </ul>
+    </nav>
 
-      <div id="library" class="home__section-title">Latest notes</div>
-      <div class="home__cards">
-        <a class="home__card" href="articles/usb-serial-communications.html">
-          <span class="home__card-number">01 · SYSTEMS</span>
-          <h2>USB Protocols & Serial Communications</h2>
-          <p>Enumeration, endpoints, transfer types, CDC, UART, RS-232, RS-485 and the surprising difference between a byte stream and a real protocol.</p>
-          <span class="home__card-arrow">Read deep dive →</span>
-        </a>
-        <a class="home__card" href="articles/advanced-typescript.html">
-          <span class="home__card-number">02 · TYPESCRIPT</span>
-          <h2>Advanced TypeScript</h2>
-          <p>Conditional types, infer, distributive types, mapped types, variance, branded types and type-level programming.</p>
-          <span class="home__card-arrow">Read deep dive →</span>
-        </a>
-      </div>
-      <p class="home__note">New notes will appear here as the library grows.</p>
-    </section>
-  </main>
+    <main class="content">
+      <section class="home" aria-labelledby="home-title">
+        <div class="home__eyebrow"><span></span>Developer journal</div>
+        <h1 id="home-title">Curious about how<br><em>software really works?</em></h1>
+        <p class="home__intro">Tech Notes is a collection of deep dives into the systems, languages, protocols and ideas underneath modern software. Technical, practical and occasionally gloriously geeky.</p>
+        <div class="home__actions">
+          <a class="home__button" href="articles/usb-serial-communications.html">Read latest article →</a>
+          <a class="home__button home__button--secondary" href="#library">Browse the library</a>
+        </div>
+
+        <div id="library" class="home__section-title">Latest notes</div>
+        <div class="home__cards">
+          <a class="home__card" href="articles/usb-serial-communications.html">
+            <span class="home__card-number">01 · SYSTEMS</span>
+            <h2>USB Protocols &amp; Serial Communications</h2>
+            <p>Enumeration, endpoints, transfer types, CDC, UART, RS-232, RS-485 and the surprising difference between a byte stream and a real protocol.</p>
+            <span class="home__card-arrow">Read deep dive →</span>
+          </a>
+          <a class="home__card" href="articles/advanced-typescript.html">
+            <span class="home__card-number">02 · TYPESCRIPT</span>
+            <h2>Advanced TypeScript</h2>
+            <p>Conditional types, infer, distributive types, mapped types, variance, branded types and type-level programming.</p>
+            <span class="home__card-arrow">Read deep dive →</span>
+          </a>
+        </div>
+        <p class="home__note">New notes will appear here as the library grows.</p>
+      </section>
+    </main>
+  </div>
 
   <script>
     const themeToggle = document.querySelector('.theme-toggle');
+    const menuToggle = document.querySelector('.menu-toggle');
+    const links = document.querySelectorAll('.sidebar__link');
+
     const themes = {
       dark: { bg:'#080b14', surface:'#101522', hover:'#1a2235', text:'#f5f7fb', muted:'#8f9bb0', accent:'#8b96ff', bright:'#b3baff', cyan:'#56d9ff' },
       light: { bg:'#f6f7fb', surface:'#ffffff', hover:'#eef1f7', text:'#18202f', muted:'#667085', accent:'#4f46e5', bright:'#3730a3', cyan:'#0891b2' }
     };
+
     function applyTheme(name) {
       const theme = themes[name] || themes.dark;
       document.documentElement.dataset.theme = name;
@@ -89,7 +113,19 @@
       themeToggle.querySelector('.theme-toggle__label').textContent=name==='light'?'Light':'Dark';
       document.querySelector('meta[name="theme-color"]').content=theme.bg;
     }
+
+    function setMenu(open) {
+      document.body.classList.toggle('nav-open',open);
+      menuToggle.setAttribute('aria-expanded',String(open));
+      menuToggle.setAttribute('aria-label',open?'Close article menu':'Open article menu');
+    }
+
     themeToggle.addEventListener('click',()=>applyTheme((document.documentElement.dataset.theme||'dark')==='dark'?'light':'dark'));
+    menuToggle.addEventListener('click',()=>setMenu(!document.body.classList.contains('nav-open')));
+
+    links.forEach(link=>link.addEventListener('click',()=>setMenu(false)));
+    window.addEventListener('resize',()=>{if(window.innerWidth>=700)setMenu(false)});
+
     applyTheme(localStorage.getItem('tech-notes-theme')==='light'?'light':'dark');
   </script>
 </body>
