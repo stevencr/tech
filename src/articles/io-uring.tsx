@@ -93,7 +93,7 @@ export function IoUringArticle() {
           It is <strong>amortisation</strong>: one expensive coordination point can
           represent many independent operations.
         </p>
-        <ArticleCode>{\`// Conceptual, not a complete program
+        <ArticleCode>{`// Conceptual, not a complete program
 
 SQE 1: READ  fd=17  buffer=A  offset=0
 SQE 2: READ  fd=18  buffer=B  offset=0
@@ -103,7 +103,7 @@ submit(3);
 
 CQE 1: user_data=1  res=4096
 CQE 2: user_data=2  res=4096
-CQE 3: user_data=3  res=4096\`}</ArticleCode>
+CQE 3: user_data=3  res=4096`}</ArticleCode>
       </ArticleSection>
 
       <ArticleSection title="It is closer to a work queue than a promise API">
@@ -129,14 +129,14 @@ CQE 3: user_data=3  res=4096\`}</ArticleCode>
           about relationships between operations rather than forcing the application
           to wake up after every step.
         </p>
-        <ArticleCode>{\`READ metadata
+        <ArticleCode>{`READ metadata
   |
   +--> READ payload
   |
   +--> READ index
           |
           v
-       WRITE result\`}</ArticleCode>
+       WRITE result`}</ArticleCode>
         <p>
           The broader architectural idea is powerful: once the kernel understands the
           dependency graph, it can schedule work without every transition becoming an
@@ -229,7 +229,7 @@ CQE 3: user_data=3  res=4096\`}</ArticleCode>
           just latency. Watch where CPU overhead and queue depth change as concurrency
           rises.
         </p>
-        <ArticleCode>{\`# Useful Linux observations
+        <ArticleCode>{`# Useful Linux observations
 
 strace -c ./your-program
 perf stat ./your-program
@@ -238,7 +238,7 @@ perf stat ./your-program
 #   - queue depth
 #   - batch size
 #   - buffer size
-#   - number of concurrent requests\`}</ArticleCode>
+#   - number of concurrent requests`}</ArticleCode>
       </ArticleSection>
 
       <ArticleSection title="The bigger connection">
