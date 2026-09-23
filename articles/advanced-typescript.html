@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Advanced TypeScript: The Type System Under the Hood</title>
+<link rel="stylesheet" href="../styles.css">
+<style>
+.article-page{background:var(--bg);color:var(--text)}.article{max-width:900px;margin:0 auto;padding:3rem 2.5rem 5rem}.article__eyebrow{color:var(--accent);font:700 .7rem "Space Grotesk";letter-spacing:.12em;text-transform:uppercase}.article h1{font:700 clamp(2rem,5vw,3.5rem)/1.05 "Space Grotesk";margin:.7rem 0 1rem}.article__meta{color:var(--text-muted);font-size:.9rem}.article h2{margin:3rem 0 1rem;font:700 1.55rem "Space Grotesk"}.article p,.article li{color:var(--text-muted);line-height:1.8}.article strong{color:var(--text)}.article pre{overflow:auto;padding:1.2rem;border:1px solid var(--border);border-radius:12px;background:var(--surface);color:var(--text);line-height:1.6}.article code{color:var(--accent-bright)}.article__callout{padding:1rem 1.2rem;border-left:3px solid var(--accent);background:var(--accent-soft);color:var(--text-muted)}@media(max-width:699px){.article{padding:2rem 1.25rem 4rem}}
+</style>
+</head>
+<body class="article-page">
+<article class="article">
+<p class="article__eyebrow">TypeScript / Type Systems / Advanced</p>
+<h1>Advanced TypeScript: The Type System Under the Hood</h1>
+<p class="article__meta">A deep dive into conditional types, distributive unions, inference, variance, mapped types and the techniques that let TypeScript model surprisingly complex APIs.</p>
+
+<p>TypeScript is much more than JavaScript with annotations. Its structural type system has a surprisingly expressive type-level language. The key is to stop thinking of types as labels and start thinking of them as <strong>sets of possible values</strong>.</p>
+
+<h2>1. Types behave like sets</h2>
+<p>A union represents a value that belongs to one of several sets. An intersection represents a value satisfying multiple constraints.</p>
+<pre><code>type Role = "admin" | "editor";
+
+type WithId = { id: string };
+type WithName = { name: string };
+
+type User = WithId &amp; WithName;</code></pre>
+<p>This model explains why unions, intersections and <code>never</code> compose so powerfully.</p>
+
+<h2>2. Conditional types are type-level branching</h2>
+<pre><code>type IsString&lt;T&gt; =
+  T extends string ? true : false;
+
+type A = IsString&lt;"hello"&gt;; // true
+type B = IsString&lt;42&gt;;      // false</code></pre>
+<p>The condition asks whether the supplied type is assignable to the constraint. This becomes the foundation for reusable type transformations.</p>
+
+<h2>3. <code>infer</code> extracts structure</h2>
+<p><code>infer</code> introduces a type variable by matching part of a type's structure.</p>
+<pre><code>type ReturnTypeOf&lt;T&gt; =
+  T extends (...args: any[]) =&gt; infer R ? R : never;
+
+type Result =
+  ReturnTypeOf&lt;() =&gt; Promise&lt;User&gt;&gt;;
+// Promise&lt;User&gt;</code></pre>
+<p>Think of this as pattern matching over types. Many built-in utilities are variations on the same technique.</p>
+
+<h2>4. Distributive conditional types</h2>
+<p>A conditional type distributes over a union when the checked type is a naked type parameter.</p>
+<pre><code>type ToArray&lt;T&gt; =
+  T extends unknown ? T[] : never;
+
+type Result = ToArray&lt;string | number&gt;;
+// string[] | number[]</code></pre>
+<p>It is effectively evaluated once for each union member. To prevent distribution, wrap the type parameter:</p>
+<pre><code>type ToArray&lt;T&gt; =
+  [T] extends [unknown] ? T[] : never;
+
+type Result = ToArray&lt;string | number&gt;;
+// (string | number)[]</code></pre>
+
+<h2>5. Mapped types are type-level iteration</h2>
+<pre><code>type Flags&lt;T&gt; = {
+  [K in keyof T]: boolean;
+};
+
+type Features = {
+  search: string;
+  analytics: number;
+};
+
+type FeatureFlags = Flags&lt;Features&gt;;
+// { search: boolean; analytics: boolean }</code></pre>
+<p>Combine <code>keyof</code>, indexed access and mapped types and you can build types that mirror runtime objects while preserving relationships between their keys and values.</p>
+
+<h2>6. Key remapping</h2>
+<pre><code>type Getters&lt;T&gt; = {
+  [K in keyof T as
+    `get${Capitalize&lt;string &amp; K&gt;}`]: () =&gt; T[K]
+};
+
+type Person = {
+  name: string;
+  age: number;
+};
+
+type PersonGetters = Getters&lt;Person&gt;;
+
+/*
+{
+  getName: () =&gt; string;
+  getAge: () =&gt; number;
+}
+*/</code></pre>
+<p>Template literal types turn property names into another dimension of type-level computation.</p>
+
+<h2>7. Generic inference is about relationships</h2>
+<pre><code>function mapValue&lt;T, U&gt;(
+  value: T,
+  map: (value: T) =&gt; U
+): U {
+  return map(value);
+}
+
+const result =
+  mapValue("hello", value =&gt; value.length);
+// number</code></pre>
+<p>The compiler infers <code>T</code> from the value, uses it to type the callback, then infers <code>U</code> from the callback result. Good generic APIs expose relationships the compiler can follow.</p>
+
+<h2>8. Variance explains tricky callback errors</h2>
+<p>Variance describes what happens when related types are substituted into a generic type. Functions are the classic example: parameter types generally behave contravariantly.</p>
+<pre><code>type Handler&lt;T&gt; = (value: T) =&gt; void;
+
+declare const animalHandler: Handler&lt;Animal&gt;;
+declare const dogHandler: Handler&lt;Dog&gt;;
+
+dogHandler = animalHandler; // safe
+// animalHandler = dogHandler; // unsafe</code></pre>
+<p>Understanding variance makes errors involving callbacks, event handlers and generic libraries much less mysterious.</p>
+
+<h2>9. <code>never</code> is the empty set</h2>
+<p>If types are sets, <code>never</code> is the empty set. That makes it ideal for exhaustive checks.</p>
+<pre><code>function assertNever(value: never): never {
+  throw new Error("Unexpected value");
+}
+
+type Shape =
+  | { kind: "circle"; radius: number }
+  | { kind: "square"; size: number };
+
+function area(shape: Shape) {
+  switch (shape.kind) {
+    case "circle": return Math.PI * shape.radius ** 2;
+    case "square": return shape.size ** 2;
+    default: return assertNever(shape);
+  }
+}</code></pre>
+<p>Add another variant and the compiler identifies the supposedly unreachable branch.</p>
+
+<h2>10. Branded types create domain distinctions</h2>
+<pre><code>type UserId =
+  string &amp; { readonly __brand: "UserId" };
+
+type OrderId =
+  string &amp; { readonly __brand: "OrderId" };
+
+function getOrder(id: OrderId) {
+  // ...
+}</code></pre>
+<p>Structural typing normally makes strings interchangeable. A brand creates a compile-time distinction without changing the runtime representation.</p>
+
+<h2>11. Derive types from a source of truth</h2>
+<pre><code>const routes = {
+  users: "/api/users",
+  orders: "/api/orders",
+} as const;
+
+type Route =
+  typeof routes[keyof typeof routes];
+// "/api/users" | "/api/orders"</code></pre>
+<p><code>as const</code> prevents widening, <code>typeof</code> captures the value's type, and indexed access extracts the union. This pattern is useful for routes, event maps, command registries and configuration.</p>
+
+<h2>12. Type-level programming has real limits</h2>
+<div class="article__callout"><strong>Important:</strong> TypeScript types disappear at runtime. A type assertion does not validate external data.</div>
+<p>TypeScript deliberately makes compromises for JavaScript compatibility, usability and compiler performance. An API response typed as <code>User</code> is not automatically a User. Network data still needs runtime validation.</p>
+
+<h2>13. A practical experiment: type-safe event maps</h2>
+<pre><code>type Events = {
+  userCreated: { id: string; email: string };
+  orderPaid: { orderId: string; amount: number };
+  userDeleted: { id: string };
+};
+
+function on&lt;K extends keyof Events&gt;(
+  event: K,
+  handler: (payload: Events[K]) =&gt; void
+) {
+  // register handler
+}
+
+on("orderPaid", event =&gt; {
+  event.amount;  // number
+  event.orderId; // string
+});</code></pre>
+<p>Now deliberately introduce errors: use the wrong event name, access a property belonging to another event, or change a payload. The interesting part is seeing how the key-to-payload relationship survives through the generic API.</p>
+
+<h2>The bigger idea</h2>
+<p>Advanced TypeScript is less about memorising clever syntax and more about expressing <strong>relationships</strong>. Conditional types branch. <code>infer</code> extracts structure. Mapped types transform structure. Distributive types operate over union members. Variance describes safe substitution. <code>never</code> represents impossibility.</p>
+<p>Once those primitives click, many “magic” library types stop looking magical. They become small programs executed by the compiler.</p>
+</article>
+</body>
+</html>
