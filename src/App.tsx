@@ -1,6 +1,163 @@
-import {useEffect,useState} from 'react';
-import {NavLink,Route,Routes,useLocation} from 'react-router-dom';
-import {articles} from './articles.tsx';
+import { useEffect, useState } from 'react';
+import { NavLink, Route, Routes, useLocation } from 'react-router-dom';
+import { articles } from './articles';
+ 
+function Home() {
+  return (
+    <section className="home">
+      <div className="home__eyebrow">
+        <span />
+        Developer journal
+      </div>
+      <h1>
+        How does
+        <br />
+        <em>software</em>
+        <br />
+        work?
+      </h1>
+      <p className="home__intro">
+        Tech Notes is a collection of deep dives into the systems, languages,
+        protocols and ideas underneath modern software. Technical, practical
+        and occasionally gloriously geeky.
+      </p>
+      <div className="home__actions">
+        <NavLink className="home__button" to={`/articles/${articles[0].slug}`}>
+          Read latest article →
+        </NavLink>
+        <a className="home__button home__button--secondary" href="#library">
+          Browse the library
+        </a>
+      </div>
+      <div id="library" className="home__section-title">
+        Latest notes
+      </div>
+      <div className="home__cards">
+        {articles.map((article, index) => (
+          <NavLink
+            key={article.slug}
+            className="home__card"
+            to={`/articles/${article.slug}`}
+          >
+            <span className="home__card-number">
+              {String(index + 1).padStart(2, '0')} · {article.category.toUpperCase()}
+            </span>
+            <h2>{article.title}</h2>
+            <p>{article.description}</p>
+            <span className="home__card-arrow">Read deep dive →</span>
+          </NavLink>
+        ))}
+      </div>
+      <p className="home__note">New notes will appear here as the library grows.</p>
+    </section>
+  );
+}
 
-function Home(){return <section className="home"><div className="home__eyebrow"><span/>Developer journal</div><h1>How does<br/><em>software</em><br/>work?</h1><p className="home__intro">Tech Notes is a collection of deep dives into the systems, languages, protocols and ideas underneath modern software. Technical, practical and occasionally gloriously geeky.</p><div className="home__actions"><NavLink className="home__button" to={articles[0].path}>Read latest article →</NavLink><a className="home__button home__button--secondary" href="#library">Browse the library</a></div><div id="library" className="home__section-title">Latest notes</div><div className="home__cards">{articles.map((a,i)=><NavLink key={a.path} className="home__card" to={a.path}><span className="home__card-number">0{i+1} · {i?'TYPESCRIPT':'SYSTEMS'}</span><h2>{i?'Advanced TypeScript':'USB Protocols & Serial Communications'}</h2><p>{i?'Conditional types, infer, distributive types, mapped types, variance, branded types and type-level programming.':'Enumeration, endpoints, transfer types, CDC, UART, RS-232, RS-485 and the surprising difference between a byte stream and a real protocol.'}</p><span className="home__card-arrow">Read deep dive →</span></NavLink>)}</div><p className="home__note">New notes will appear here as the library grows.</p></section>}
-export default function App(){const loc=useLocation();const[theme,setTheme]=useState<'dark'|'light'>(()=>localStorage.getItem('tech-notes-theme')==='light'?'light':'dark');const[open,setOpen]=useState(false);useEffect(()=>{document.documentElement.dataset.theme=theme;document.documentElement.style.colorScheme=theme;document.querySelector('meta[name="theme-color"]')?.setAttribute('content',theme==='light'?'#f6f7fb':'#080b14');localStorage.setItem('tech-notes-theme',theme)},[theme]);useEffect(()=>setOpen(false),[loc.pathname]);return <><header className="site-header"><button className="menu-toggle" aria-label={open?'Close article menu':'Open article menu'} aria-expanded={open} onClick={()=>setOpen(v=>!v)}><span/><span/><span/></button><NavLink className="brand" to="/"><span className="brand__mark">&lt;/&gt;</span><span><span className="brand__name">Tech Notes</span><span className="brand__tagline">by Steven Cranfield</span></span></NavLink><div className="header-actions"><button className="theme-toggle" aria-label={theme==='dark'?'Switch to light mode':'Switch to dark mode'} onClick={()=>setTheme(v=>v==='dark'?'light':'dark')}><span className="theme-toggle__icon">{theme==='light'?'☾':'☀'}</span></button><span className="brand__status"><span/> Developer journal</span></div></header><div className="app-shell"><nav className={`sidebar ${open?'is-open':''}`}><div className="sidebar__heading"><span>Library</span><span className="sidebar__count">0{articles.length}</span></div><ul className="sidebar__list">{articles.map((a,i)=><li key={a.path}><NavLink className="sidebar__link" to={a.path}><span className="sidebar__number">0{i+1}</span><span className="sidebar__copy"><strong>{a.title}</strong><small>{a.subtitle}</small></span></NavLink></li>)}</ul></nav>{open&&<button className="nav-backdrop" aria-label="Close article menu" onClick={()=>setOpen(false)}/>}<main className="content"><Routes><Route path="/" element={<Home/>}/>{articles.map(a=><Route key={a.path} path={a.path} element={a.element}/>)}<Route path="*" element={<Home/>}/></Routes></main></div><footer className="site-footer">Tech Notes · by Steven Cranfield</footer></>}
+export default function App() {
+  const location = useLocation();
+  const [theme, setTheme] = useState<'dark' | 'light'>(
+    () => (localStorage.getItem('tech-notes-theme') === 'light' ? 'light' : 'dark'),
+  );
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    document.documentElement.style.colorScheme = theme;
+    document
+      .querySelector('meta[name="theme-color"]')
+      ?.setAttribute('content', theme === 'light' ? '#f6f7fb' : '#080b14');
+    localStorage.setItem('tech-notes-theme', theme);
+  }, [theme]);
+
+  useEffect(() => setOpen(false), [location.pathname]);
+
+  return (
+    <>
+      <header className="site-header">
+        <button
+          className="menu-toggle"
+          aria-label={open ? 'Close article menu' : 'Open article menu'}
+          aria-expanded={open}
+          onClick={() => setOpen((value) => !value)}
+        >
+          <span />
+          <span />
+          <span />
+        </button>
+
+        <NavLink className="brand" to="/">
+          <span className="brand__mark">&lt;/&gt;</span>
+          <span>
+            <span className="brand__name">Tech Notes</span>
+            <span className="brand__tagline">by Steven Cranfield</span>
+          </span>
+        </NavLink>
+
+        <div className="header-actions">
+          <button
+            className="theme-toggle"
+            aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+            onClick={() => setTheme((value) => (value === 'dark' ? 'light' : 'dark'))}
+          >
+            <span className="theme-toggle__icon">{theme === 'light' ? '☾' : '☀'}</span>
+          </button>
+          <span className="brand__status">
+            <span /> Developer journal
+          </span>
+        </div>
+      </header>
+
+      <div className="app-shell">
+        <nav className={`sidebar ${open ? 'is-open' : ''}`}>
+          <div className="sidebar__heading">
+            <span>Library</span>
+            <span className="sidebar__count">{String(articles.length).padStart(2, '0')}</span>
+          </div>
+
+          <ul className="sidebar__list">
+            {articles.map((article, index) => (
+              <li key={article.slug}>
+                <NavLink className="sidebar__link" to={`/articles/${article.slug}`}>
+                  <span className="sidebar__number">
+                    {String(index + 1).padStart(2, '0')}
+                  </span>
+                  <span className="sidebar__copy">
+                    <strong>{article.title}</strong>
+                    <small>{article.subtitle}</small>
+                  </span>
+                </NavLink>
+              </li>
+            ))}
+          </ul>
+        </nav>
+
+        {open && (
+          <button
+            className="nav-backdrop"
+            aria-label="Close article menu"
+            onClick={() => setOpen(false)}
+          />
+        )}
+
+        <main className="content">
+          <Routes>
+            <Route path="/" element={<Home />} />
+            {articles.map((article) => {
+              const Article = article.component;
+              return (
+                <Route
+                  key={article.slug}
+                  path={`/articles/${article.slug}`}
+                  element={<Article />}
+                />
+              );
+            })}
+            <Route path="*" element={<Home />} />
+          </Routes>
+        </main>
+      </div>
+
+      <footer className="site-footer">Tech Notes · by Steven Cranfield</footer>
+    </>
+  );
+}
