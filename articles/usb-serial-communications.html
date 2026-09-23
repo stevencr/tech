@@ -29,6 +29,19 @@
     .article th{color:var(--text);font-family:"Space Grotesk",sans-serif}
     @media(max-width:650px){.diagram{grid-template-columns:1fr}.article{padding-top:26px}}
   </style>
+<script>
+(function(){
+  const themes={
+    dark:{bg:'#080b14',surface:'#101522',hover:'#1a2235',text:'#f5f7fb',muted:'#8f9bb0',accent:'#8b96ff',bright:'#b3baff',cyan:'#56d9ff'},
+    light:{bg:'#f6f7fb',surface:'#ffffff',hover:'#eef1f7',text:'#18202f',muted:'#667085',accent:'#4f46e5',bright:'#3730a3',cyan:'#0891b2'}
+  };
+  const name=localStorage.getItem('tech-notes-theme')==='light'?'light':'dark';
+  const theme=themes[name];
+  document.documentElement.dataset.theme=name;
+  Object.entries(theme).forEach(([key,value])=>document.documentElement.style.setProperty('--'+key.replace('bright','accent-bright').replace('muted','text-muted'),value));
+  document.documentElement.style.setProperty('--accent-soft',theme.accent+'20');
+})();
+</script>
 </head>
 <body>
 <article class="article">
