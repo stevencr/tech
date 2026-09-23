@@ -12,6 +12,7 @@
     <button class="menu-toggle" type="button" aria-label="Open article menu" aria-controls="article-nav" aria-expanded="false">
       <span></span><span></span><span></span>
     </button>
+
     <a class="brand" href="./" aria-label="Tech Notes home">
       <span class="brand__mark" aria-hidden="true">&lt;/&gt;</span>
       <span>
@@ -19,7 +20,34 @@
         <span class="brand__tagline">Deep dives for curious developers</span>
       </span>
     </a>
-    <span class="brand__status"><span></span> Developer journal</span>
+
+    <div class="header-actions">
+      <div class="theme-picker">
+        <button class="theme-toggle" type="button" aria-label="Choose theme" aria-expanded="false">
+          <span class="theme-toggle__swatch"></span>
+          <span class="theme-toggle__label">Theme</span>
+          <span class="theme-toggle__chevron">⌄</span>
+        </button>
+        <div class="theme-menu" role="menu" aria-label="Themes">
+          <button class="theme-option is-selected" type="button" data-theme="midnight" role="menuitem">
+            <span class="theme-swatch theme-swatch--midnight"></span><span><strong>Midnight</strong><small>Focused &amp; dark</small></span>
+          </button>
+          <button class="theme-option" type="button" data-theme="nord" role="menuitem">
+            <span class="theme-swatch theme-swatch--nord"></span><span><strong>Nord</strong><small>Cool &amp; calm</small></span>
+          </button>
+          <button class="theme-option" type="button" data-theme="solar" role="menuitem">
+            <span class="theme-swatch theme-swatch--solar"></span><span><strong>Solar</strong><small>Warm &amp; paper-like</small></span>
+          </button>
+          <button class="theme-option" type="button" data-theme="mono" role="menuitem">
+            <span class="theme-swatch theme-swatch--mono"></span><span><strong>Mono</strong><small>Minimal &amp; crisp</small></span>
+          </button>
+          <button class="theme-option" type="button" data-theme="neon" role="menuitem">
+            <span class="theme-swatch theme-swatch--neon"></span><span><strong>Neon</strong><small>Retro terminal</small></span>
+          </button>
+        </div>
+      </div>
+      <span class="brand__status"><span></span> Developer journal</span>
+    </div>
   </header>
 
   <div class="app-shell">
@@ -28,24 +56,17 @@
         <span>Library</span>
         <span class="sidebar__count">02</span>
       </div>
-
       <ul class="sidebar__list">
         <li>
           <a class="sidebar__link is-active" href="articles/ai-coding-agents.html" target="article-frame">
             <span class="sidebar__number">01</span>
-            <span class="sidebar__copy">
-              <strong>AI Coding Agents</strong>
-              <small>Agents, tools &amp; loops</small>
-            </span>
+            <span class="sidebar__copy"><strong>AI Coding Agents</strong><small>Agents, tools &amp; loops</small></span>
           </a>
         </li>
         <li>
           <a class="sidebar__link" href="articles/webassembly-components.html" target="article-frame">
             <span class="sidebar__number">02</span>
-            <span class="sidebar__copy">
-              <strong>WebAssembly Components</strong>
-              <small>Beyond the browser</small>
-            </span>
+            <span class="sidebar__copy"><strong>WebAssembly Components</strong><small>Beyond the browser</small></span>
           </a>
         </li>
       </ul>
@@ -53,9 +74,7 @@
 
     <main class="content">
       <div class="content__chrome">
-        <span>ARTICLE</span>
-        <span class="content__dot"></span>
-        <span>READING MODE</span>
+        <span>ARTICLE</span><span class="content__dot"></span><span>READING MODE</span>
       </div>
       <iframe class="content__frame" name="article-frame" src="articles/ai-coding-agents.html" title="Article content"></iframe>
     </main>
@@ -65,6 +84,18 @@
     const menuToggle = document.querySelector('.menu-toggle');
     const sidebar = document.querySelector('.sidebar');
     const links = document.querySelectorAll('.sidebar__link');
+    const themeToggle = document.querySelector('.theme-toggle');
+    const themeMenu = document.querySelector('.theme-menu');
+    const themeOptions = document.querySelectorAll('.theme-option');
+    const frame = document.querySelector('.content__frame');
+
+    const themes = {
+      midnight: { bg: '#080b14', surface: '#101522', raised: '#151b2b', hover: '#1a2235', text: '#f5f7fb', muted: '#8f9bb0', accent: '#8b96ff', bright: '#b3baff', cyan: '#56d9ff', articleBg: '#080b14', articleText: '#334155', articleHeading: '#0f172a' },
+      nord: { bg: '#20252d', surface: '#2b323d', raised: '#343d4a', hover: '#3b4655', text: '#eceff4', muted: '#aab4c3', accent: '#88c0d0', bright: '#8fbcbb', cyan: '#81a1c1', articleBg: '#eceff4', articleText: '#3b4252', articleHeading: '#2e3440' },
+      solar: { bg: '#fdf6e3', surface: '#f7efd5', raised: '#eee5c9', hover: '#e6dcc0', text: '#34424a', muted: '#7b817b', accent: '#b58900', bright: '#cb4b16', cyan: '#2aa198', articleBg: '#fdf6e3', articleText: '#586e75', articleHeading: '#073642' },
+      mono: { bg: '#111111', surface: '#191919', raised: '#222222', hover: '#2b2b2b', text: '#f4f4f4', muted: '#999999', accent: '#ffffff', bright: '#ffffff', cyan: '#cccccc', articleBg: '#111111', articleText: '#bdbdbd', articleHeading: '#f4f4f4' },
+      neon: { bg: '#090011', surface: '#160020', raised: '#21002f', hover: '#2d0040', text: '#f7eaff', muted: '#ad8bb8', accent: '#ff4fd8', bright: '#7dffea', cyan: '#00e5ff', articleBg: '#090011', articleText: '#d2b8dc', articleHeading: '#fff0ff' }
+    };
 
     const setMenu = (open) => {
       document.body.classList.toggle('nav-open', open);
@@ -72,31 +103,74 @@
       menuToggle.setAttribute('aria-label', open ? 'Close article menu' : 'Open article menu');
     };
 
-    menuToggle.addEventListener('click', () => {
-      setMenu(!document.body.classList.contains('nav-open'));
-    });
+    const setThemeMenu = (open) => {
+      themeMenu.classList.toggle('is-open', open);
+      themeToggle.setAttribute('aria-expanded', String(open));
+    };
 
-    links.forEach(link => {
-      link.addEventListener('click', () => {
-        links.forEach(item => item.classList.remove('is-active'));
-        link.classList.add('is-active');
-        setMenu(false);
+    const applyTheme = (name) => {
+      const theme = themes[name] || themes.midnight;
+      document.documentElement.dataset.theme = name;
+      Object.entries(theme).forEach(([key, value]) => {
+        const cssName = {bg:'--bg',surface:'--surface',raised:'--surface-raised',hover:'--surface-hover',text:'--text',muted:'--text-muted',accent:'--accent',bright:'--accent-bright',cyan:'--cyan'}[key];
+        if (cssName) document.documentElement.style.setProperty(cssName, value);
       });
-    });
+      themeOptions.forEach(option => option.classList.toggle('is-selected', option.dataset.theme === name));
+      localStorage.setItem('tech-notes-theme', name);
+      document.querySelector('meta[name="theme-color"]').setAttribute('content', theme.bg);
+      syncArticleTheme();
+    };
 
+    const syncArticleTheme = () => {
+      try {
+        const doc = frame.contentDocument;
+        if (!doc) return;
+        const name = document.documentElement.dataset.theme || 'midnight';
+        const theme = themes[name];
+        let style = doc.getElementById('tech-notes-theme');
+        if (!style) {
+          style = doc.createElement('style');
+          style.id = 'tech-notes-theme';
+          doc.head.appendChild(style);
+        }
+        style.textContent = `
+          body { background: ${theme.articleBg} !important; color: ${theme.articleText} !important; }
+          h1, h2, h3, strong { color: ${theme.articleHeading} !important; }
+          p, li { color: ${theme.articleText} !important; }
+          .meta { color: ${theme.muted} !important; }
+          code { background: ${theme.surface} !important; color: ${theme.text} !important; }
+          pre { background: ${theme.surface} !important; color: ${theme.text} !important; border-color: rgba(127,127,127,.25) !important; }
+          a { color: ${theme.accent} !important; }
+        `;
+      } catch (_) {}
+    };
+
+    menuToggle.addEventListener('click', () => setMenu(!document.body.classList.contains('nav-open')));
+    links.forEach(link => link.addEventListener('click', () => {
+      links.forEach(item => item.classList.remove('is-active'));
+      link.classList.add('is-active');
+      setMenu(false);
+    }));
+    themeToggle.addEventListener('click', (event) => {
+      event.stopPropagation();
+      setThemeMenu(!themeMenu.classList.contains('is-open'));
+    });
+    themeOptions.forEach(option => option.addEventListener('click', () => {
+      applyTheme(option.dataset.theme);
+      setThemeMenu(false);
+    }));
     document.addEventListener('keydown', event => {
-      if (event.key === 'Escape') setMenu(false);
+      if (event.key === 'Escape') { setMenu(false); setThemeMenu(false); }
     });
-
     document.addEventListener('click', event => {
-      if (
-        document.body.classList.contains('nav-open') &&
-        !sidebar.contains(event.target) &&
-        !menuToggle.contains(event.target)
-      ) {
-        setMenu(false);
-      }
+      if (document.body.classList.contains('nav-open') && !sidebar.contains(event.target) && !menuToggle.contains(event.target)) setMenu(false);
+      if (!themeMenu.contains(event.target) && !themeToggle.contains(event.target)) setThemeMenu(false);
     });
+    window.addEventListener('resize', () => { if (window.innerWidth >= 700) setMenu(false); });
+    frame.addEventListener('load', syncArticleTheme);
+
+    const savedTheme = localStorage.getItem('tech-notes-theme') || 'midnight';
+    applyTheme(savedTheme);
   </script>
 </body>
 </html>
