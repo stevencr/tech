@@ -9,6 +9,9 @@
 </head>
 <body>
   <header class="site-header">
+    <button class="menu-toggle" type="button" aria-label="Open article menu" aria-controls="article-nav" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
     <a class="brand" href="./" aria-label="Tech Notes home">
       <span class="brand__mark" aria-hidden="true">&lt;/&gt;</span>
       <span>
@@ -20,7 +23,7 @@
   </header>
 
   <div class="app-shell">
-    <nav class="sidebar" aria-label="Articles">
+    <nav class="sidebar" id="article-nav" aria-label="Articles">
       <div class="sidebar__heading">
         <span>Library</span>
         <span class="sidebar__count">02</span>
@@ -59,13 +62,40 @@
   </div>
 
   <script>
+    const menuToggle = document.querySelector('.menu-toggle');
+    const sidebar = document.querySelector('.sidebar');
     const links = document.querySelectorAll('.sidebar__link');
+
+    const setMenu = (open) => {
+      document.body.classList.toggle('nav-open', open);
+      menuToggle.setAttribute('aria-expanded', String(open));
+      menuToggle.setAttribute('aria-label', open ? 'Close article menu' : 'Open article menu');
+    };
+
+    menuToggle.addEventListener('click', () => {
+      setMenu(!document.body.classList.contains('nav-open'));
+    });
 
     links.forEach(link => {
       link.addEventListener('click', () => {
         links.forEach(item => item.classList.remove('is-active'));
         link.classList.add('is-active');
+        setMenu(false);
       });
+    });
+
+    document.addEventListener('keydown', event => {
+      if (event.key === 'Escape') setMenu(false);
+    });
+
+    document.addEventListener('click', event => {
+      if (
+        document.body.classList.contains('nav-open') &&
+        !sidebar.contains(event.target) &&
+        !menuToggle.contains(event.target)
+      ) {
+        setMenu(false);
+      }
     });
   </script>
 </body>
