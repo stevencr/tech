@@ -3,31 +3,70 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Tech Articles</title>
+  <meta name="theme-color" content="#080b14">
+  <title>Tech Notes</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+  <header class="site-header">
+    <a class="brand" href="./" aria-label="Tech Notes home">
+      <span class="brand__mark" aria-hidden="true">&lt;/&gt;</span>
+      <span>
+        <span class="brand__name">Tech Notes</span>
+        <span class="brand__tagline">Deep dives for curious developers</span>
+      </span>
+    </a>
+    <span class="brand__status"><span></span> Developer journal</span>
+  </header>
 
-  <nav class="sidebar">
-    <h2 class="sidebar__title">Articles</h2>
-    <ul class="sidebar__list">
-      <li><a class="sidebar__link is-active" href="articles/ai-coding-agents.html" target="article-frame">AI Coding Agents</a></li>
-      <li><a class="sidebar__link" href="articles/webassembly-components.html" target="article-frame">WebAssembly Components</a></li>
-    </ul>
-  </nav>
+  <div class="app-shell">
+    <nav class="sidebar" aria-label="Articles">
+      <div class="sidebar__heading">
+        <span>Library</span>
+        <span class="sidebar__count">02</span>
+      </div>
 
-  <main class="content">
-    <iframe class="content__frame" name="article-frame" src="articles/ai-coding-agents.html" title="Article content"></iframe>
-  </main>
+      <ul class="sidebar__list">
+        <li>
+          <a class="sidebar__link is-active" href="articles/ai-coding-agents.html" target="article-frame">
+            <span class="sidebar__number">01</span>
+            <span class="sidebar__copy">
+              <strong>AI Coding Agents</strong>
+              <small>Agents, tools &amp; loops</small>
+            </span>
+          </a>
+        </li>
+        <li>
+          <a class="sidebar__link" href="articles/webassembly-components.html" target="article-frame">
+            <span class="sidebar__number">02</span>
+            <span class="sidebar__copy">
+              <strong>WebAssembly Components</strong>
+              <small>Beyond the browser</small>
+            </span>
+          </a>
+        </li>
+      </ul>
+    </nav>
+
+    <main class="content">
+      <div class="content__chrome">
+        <span>ARTICLE</span>
+        <span class="content__dot"></span>
+        <span>READING MODE</span>
+      </div>
+      <iframe class="content__frame" name="article-frame" src="articles/ai-coding-agents.html" title="Article content"></iframe>
+    </main>
+  </div>
 
   <script>
-    document.querySelectorAll('.sidebar__link').forEach(link => {
+    const links = document.querySelectorAll('.sidebar__link');
+
+    links.forEach(link => {
       link.addEventListener('click', () => {
-        document.querySelectorAll('.sidebar__link').forEach(l => l.classList.remove('is-active'));
+        links.forEach(item => item.classList.remove('is-active'));
         link.classList.add('is-active');
       });
     });
   </script>
-
 </body>
 </html>
