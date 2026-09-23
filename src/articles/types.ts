@@ -6,5 +6,8 @@ export type ArticleMeta = {
   subtitle: string;
   category: string;
   description: string;
+  date?: string;
+  readingTime?: number;
+  tags?: string[];
   component: ComponentType;
 };
