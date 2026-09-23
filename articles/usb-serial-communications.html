@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>USB Protocols & Serial Communications — Tech Notes</title>
+  <link rel="stylesheet" href="../styles.css">
+  <style>
+    .article{max-width:900px;margin:0 auto;padding:clamp(28px,5vw,72px) clamp(20px,5vw,56px) 90px;font-family:"DM Sans",sans-serif}
+    .article__meta{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:18px;color:var(--accent);font:700 .72rem "Space Grotesk",sans-serif;letter-spacing:.12em;text-transform:uppercase}
+    .article h1{max-width:820px;margin:0 0 18px;color:var(--text);font:700 clamp(2.2rem,5vw,4.3rem)/1.02 "Space Grotesk",sans-serif;letter-spacing:-.045em}
+    .article .lead{max-width:780px;margin:0 0 42px;color:var(--text-muted);font-size:clamp(1.05rem,2vw,1.25rem);line-height:1.75}
+    .article h2{margin:58px 0 18px;color:var(--text);font:700 clamp(1.45rem,3vw,2rem)/1.2 "Space Grotesk",sans-serif}
+    .article h3{margin:34px 0 12px;color:var(--text);font:700 1.08rem/1.3 "Space Grotesk",sans-serif}
+    .article p,.article li{color:var(--text-muted);font-size:1rem;line-height:1.8}
+    .article ul,.article ol{padding-left:1.4rem}
+    .article li{margin:.45rem 0}
+    .article code{padding:.15em .38em;border:1px solid var(--border);border-radius:5px;background:var(--surface);color:var(--accent-bright);font:500 .9em ui-monospace,SFMono-Regular,Consolas,monospace}
+    .article pre{overflow:auto;margin:22px 0;padding:20px;border:1px solid var(--border);border-radius:14px;background:var(--surface);box-shadow:0 12px 30px rgba(0,0,0,.08)}
+    .article pre code{padding:0;border:0;background:transparent;color:var(--text);font-size:.88rem;line-height:1.7}
+    .callout{margin:28px 0;padding:20px 22px;border:1px solid color-mix(in srgb,var(--accent) 35%,var(--border));border-left:4px solid var(--accent);border-radius:12px;background:var(--surface)}
+    .callout strong{color:var(--text)}
+    .diagram{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:28px 0}
+    .diagram div{padding:18px;border:1px solid var(--border);border-radius:12px;background:var(--surface);text-align:center;color:var(--text)}
+    .diagram small{display:block;margin-top:5px;color:var(--text-muted)}
+    .table-wrap{overflow:auto;margin:24px 0}
+    .article table{width:100%;border-collapse:collapse;color:var(--text-muted);font-size:.92rem}
+    .article th,.article td{padding:13px 14px;border-bottom:1px solid var(--border);text-align:left;vertical-align:top}
+    .article th{color:var(--text);font-family:"Space Grotesk",sans-serif}
+    @media(max-width:650px){.diagram{grid-template-columns:1fr}.article{padding-top:26px}}
+  </style>
+</head>
+<body>
+<article class="article">
+  <div class="article__meta"><span>Systems</span><span>USB</span><span>Serial I/O</span><span>Deep dive</span></div>
+  <h1>USB Protocols & Serial Communications</h1>
+  <p class="lead">USB looks like a cable and a connector. Underneath, it is a layered bus protocol with enumeration, descriptors, endpoints, transfer types and host scheduling. Serial communications are the useful counterpoint: much simpler, much older, and still everywhere.</p>
+
+  <h2>The first mental model: USB is not just “serial over a cable”</h2>
+  <p>USB moves bits serially, but architecturally it is very different from a classic UART link. A UART normally gives two peers a byte stream with agreed settings such as baud rate, data bits and parity. USB is host-controlled: the host discovers devices, assigns addresses and initiates bus transactions.</p>
+  <div class="diagram">
+    <div>Application<small>read / write / control</small></div>
+    <div>USB driver<small>class or vendor driver</small></div>
+    <div>USB device<small>endpoints + firmware</small></div>
+  </div>
+  <p>That distinction explains a lot of USB behaviour. A device exposes endpoints and the host schedules transfers to them rather than treating the bus as an unconstrained byte stream.</p>
+
+  <h2>USB's layers</h2>
+  <ul>
+    <li><strong>Physical layer:</strong> signalling, electrical characteristics, connectors and link speed.</li>
+    <li><strong>Protocol layer:</strong> packets, addresses, endpoints, transfers, handshakes and error detection.</li>
+    <li><strong>Device model:</strong> descriptors describe the device, configurations, interfaces and endpoints.</li>
+    <li><strong>Host software:</strong> the OS maps USB interfaces to class drivers or vendor drivers.</li>
+    <li><strong>Application:</strong> programs normally use an OS abstraction rather than manipulating USB signalling directly.</li>
+  </ul>
+
+  <h2>Enumeration: how the host discovers a device</h2>
+  <p>Plug in a USB device and the operating system appears to know what it is. That process is <strong>enumeration</strong>.</p>
+  <ol>
+    <li>The host detects a new device on a port.</li>
+    <li>The device initially responds at the default USB address.</li>
+    <li>The host retrieves descriptors.</li>
+    <li>The host assigns a unique address.</li>
+    <li>The host selects a configuration.</li>
+    <li>The OS identifies interfaces and loads appropriate drivers.</li>
+  </ol>
+  <p>Descriptors are effectively the device's machine-readable introduction. They include things such as vendor/product identifiers, configurations, interfaces and endpoint definitions.</p>
+  <div class="callout"><strong>Debugging insight:</strong> “The device is visible but my application cannot use it” often means enumeration succeeded but the expected interface, driver, permissions or endpoint setup did not.</div>
+
+  <h2>Endpoints are the real USB abstraction</h2>
+  <p>A USB device exposes one or more <strong>endpoints</strong>. Think of an endpoint as a typed communication mailbox. Endpoint zero is special: every USB device has it and it is used for control transfers, including enumeration.</p>
+  <p>Other endpoints are associated with interfaces and carry application data. Endpoint direction is expressed from the host's perspective: <code>IN</code> means device → host and <code>OUT</code> means host → device.</p>
+
+  <h2>The four transfer types</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Type</th><th>Designed for</th><th>Key property</th></tr></thead>
+      <tbody>
+        <tr><td>Control</td><td>Configuration and commands</td><td>Reliable, structured request/response semantics</td></tr>
+        <tr><td>Bulk</td><td>Large data transfers</td><td>Reliable delivery; bandwidth is opportunistic</td></tr>
+        <tr><td>Interrupt</td><td>Small, latency-sensitive data</td><td>Scheduled polling behaviour; not a hardware interrupt</td></tr>
+        <tr><td>Isochronous</td><td>Audio/video streams</td><td>Predictable timing and bandwidth; not retransmitted like bulk</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>The name <em>interrupt transfer</em> is a common source of confusion. It does not mean the USB device raises a CPU interrupt. The host schedules the endpoint according to the USB protocol.</p>
+
+  <h2>USB CDC: when USB becomes a serial port</h2>
+  <p>USB can emulate a traditional serial port through the <strong>CDC</strong> device class, commonly CDC ACM. This is why a microcontroller can appear as something like <code>/dev/ttyACM0</code> on Linux or a COM port on Windows.</p>
+  <p>The physical transport is USB while the application-facing abstraction is serial. The OS driver translates between the two.</p>
+  <pre><code>Application
+    ↓
+Serial API
+    ↓
+OS CDC/ACM driver
+    ↓
+USB transfers
+    ↓
+USB device firmware
+    ↓
+Application protocol</code></pre>
+
+  <h2>Classic UART serial: deliberately simple</h2>
+  <p>A UART normally has no concept of devices, enumeration or endpoints. It serialises bytes using an agreed framing format.</p>
+  <pre><code>idle | start | data bits | optional parity | stop | idle
+
+        &lt;----------- one character ----------&gt;</code></pre>
+  <p>A common configuration is <code>115200 8N1</code>: 115200 symbols per second, 8 data bits, no parity and one stop bit. The sender and receiver must agree on the framing parameters.</p>
+  <p>UART is asynchronous: there is no shared clock wire. The receiver estimates bit timing from the configured baud rate and the start bit.</p>
+
+  <h2>RS-232, TTL UART and RS-485 are not the same thing</h2>
+  <p>“Serial” describes a communication style, not one electrical standard.</p>
+  <ul>
+    <li><strong>TTL UART:</strong> logic-level signals used inside embedded systems and development boards.</li>
+    <li><strong>RS-232:</strong> a different electrical interface with different voltage conventions and signalling rules.</li>
+    <li><strong>RS-485:</strong> differential signalling designed for robust multi-device buses and longer cable runs.</li>
+  </ul>
+  <p>A USB-to-UART adapter and a USB-to-RS-232 adapter may look similar from the computer's point of view while being electrically incompatible on the far side.</p>
+
+  <h2>Baud rate is not automatically bytes per second</h2>
+  <p>For simple binary UART, baud and bits per second are often treated as equivalent. Application throughput is lower because each character includes framing overhead.</p>
+  <pre><code>115200 baud ÷ 10 bits/byte ≈ 11,520 bytes/second</code></pre>
+  <p>With 8N1, one byte normally occupies 10 bits: one start bit, eight data bits and one stop bit. Application protocols may add their own framing, checksums and acknowledgements.</p>
+
+  <h2>USB vs UART: the architectural trade-off</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th></th><th>USB</th><th>UART</th></tr></thead>
+      <tbody>
+        <tr><td>Topology</td><td>Host + devices, hubs supported</td><td>Usually point-to-point</td></tr>
+        <tr><td>Discovery</td><td>Enumeration and descriptors</td><td>Usually configured manually</td></tr>
+        <tr><td>Clocking</td><td>Defined by USB signalling/protocol</td><td>Independent clocks with configured baud</td></tr>
+        <tr><td>Software model</td><td>Classes, interfaces, endpoints</td><td>Byte stream / framing protocol</td></tr>
+        <tr><td>Complexity</td><td>High</td><td>Low</td></tr>
+        <tr><td>Typical strength</td><td>General-purpose peripherals and high throughput</td><td>Simple embedded control and diagnostics</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>Where the interesting bugs live</h2>
+  <h3>Framing mismatches</h3>
+  <p>UART problems often begin with a tiny mismatch: <code>9600 8N1</code> on one side and <code>9600 7E1</code> on the other. The wire is active, but the bytes are garbage.</p>
+  <h3>Assuming writes equal messages</h3>
+  <p>Neither UART nor many USB serial APIs guarantee that one application write corresponds to one application read. If your protocol sends messages, define framing yourself.</p>
+  <pre><code>[SYNC][LENGTH][TYPE][PAYLOAD...][CRC]</code></pre>
+  <p>A robust receiver can maintain a state machine: find sync, read the header, collect the declared payload, verify the CRC, emit a message and recover if corruption occurs.</p>
+  <h3>Blocking reads</h3>
+  <p>A serial device may deliver one byte now and the rest later. Production code treats I/O as incremental and asynchronous rather than assuming a complete message arrives in one read.</p>
+  <h3>Permissions and drivers</h3>
+  <p>Hardware visibility, driver binding and application permissions are separate concerns. “The OS sees the USB device” does not imply that an arbitrary application can open its interface.</p>
+
+  <h2>A useful experiment</h2>
+  <p>Connect two serial endpoints, or a development board and a USB serial adapter. Send a deliberately fragmented message one character at a time with random delays. Then build a receiver that buffers bytes and parses complete messages.</p>
+  <pre><code>[SYNC] [LENGTH] [TYPE] [PAYLOAD] [CRC]
+
+0xAA     0x0B     0x02    ...       0x7C</code></pre>
+  <p>Add a timeout, a maximum message length and CRC validation. This small experiment makes the difference between a byte stream and a real application protocol very obvious.</p>
+
+  <h2>The bigger connection</h2>
+  <p>USB and UART illustrate a general systems principle: <strong>separate transport from protocol</strong>. A byte stream is not a message protocol. A USB endpoint is not an application API. TCP is not HTTP. Ethernet is not IP.</p>
+  <p>Once you see these as layers, many systems become easier to reason about. Each layer provides guarantees to the layer above it, while deliberately leaving other guarantees to a higher layer.</p>
+
+  <div class="callout"><strong>Takeaway:</strong> USB gives you a sophisticated host-controlled transport and device model. UART gives you a minimal byte-level mechanism. In both cases, reliable application software comes from understanding exactly where framing, flow control, errors and message boundaries are — and where they are not.</div>
+</article>
+</body>
+</html>
