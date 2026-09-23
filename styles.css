@@ -414,3 +414,126 @@ body {
     transition: none;
   }
 }
+
+.menu-toggle {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  display: grid;
+  place-content: center;
+  gap: 5px;
+  order: -1;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  cursor: pointer;
+  transition: 180ms ease;
+}
+
+.menu-toggle:hover {
+  background: var(--surface-hover);
+  border-color: rgba(139, 150, 255, 0.3);
+}
+
+.menu-toggle span {
+  width: 17px;
+  height: 1.5px;
+  display: block;
+  border-radius: 2px;
+  background: currentColor;
+  transition: transform 220ms ease, opacity 180ms ease;
+}
+
+.nav-open .menu-toggle span:nth-child(1) {
+  transform: translateY(6.5px) rotate(45deg);
+}
+
+.nav-open .menu-toggle span:nth-child(2) {
+  opacity: 0;
+}
+
+.nav-open .menu-toggle span:nth-child(3) {
+  transform: translateY(-6.5px) rotate(-45deg);
+}
+
+.sidebar {
+  position: fixed;
+  inset: var(--header-height) auto 0 0;
+  z-index: 9;
+  width: min(310px, 88vw);
+  padding: 1.25rem;
+  border: 0;
+  border-right: 1px solid var(--border);
+  background: rgba(12, 16, 27, 0.96);
+  backdrop-filter: blur(24px);
+  box-shadow: 20px 0 60px rgba(0, 0, 0, 0.3);
+  transform: translateX(-105%);
+  transition: transform 260ms cubic-bezier(.2,.8,.2,1);
+  overflow-y: auto;
+}
+
+.nav-open .sidebar {
+  transform: translateX(0);
+}
+
+.nav-open .content::before {
+  content: "";
+  position: fixed;
+  inset: var(--header-height) 0 0;
+  z-index: 7;
+  background: rgba(0, 0, 0, 0.48);
+  backdrop-filter: blur(2px);
+}
+
+.sidebar__list {
+  display: flex;
+  flex-direction: column;
+  overflow: visible;
+}
+
+.sidebar__list li {
+  flex: 0 0 auto;
+}
+
+.sidebar__link {
+  min-height: 72px;
+}
+
+@media (min-width: 700px) {
+  .menu-toggle {
+    display: none;
+  }
+
+  .sidebar {
+    position: static;
+    transform: none;
+    width: 270px;
+    flex: 0 0 270px;
+    padding: 1.5rem 1rem;
+    border-right: 1px solid var(--border);
+    background: rgba(16, 21, 34, 0.52);
+    box-shadow: none;
+    backdrop-filter: none;
+  }
+
+  .nav-open .content::before {
+    display: none;
+  }
+}
+
+@media (min-width: 1100px) {
+  .sidebar {
+    width: 300px;
+    flex-basis: 300px;
+    padding-inline: 1.25rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .menu-toggle,
+  .menu-toggle span,
+  .sidebar {
+    transition: none;
+  }
+}
