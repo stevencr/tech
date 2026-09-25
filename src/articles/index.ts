@@ -1,9 +1,29 @@
+import { KubernetesSchedulerArticle, meta as kubernetesScheduler } from './kubernetes-scheduler';
+import { DockerBuildKitArticle, meta as dockerBuildKit } from './docker-buildkit';
+import { NodeEventLoopArticle, meta as nodeEventLoop } from './node-event-loop';
+import { V8HiddenClassesArticle, meta as v8HiddenClasses } from './v8-hidden-classes';
+import { TerminalTtyPtyArticle, meta as terminalTtyPty } from './terminal-tty-pty';
+import { GitObjectDatabaseArticle, meta as gitObjectDatabase } from './git-object-database';
+import { Http3QuicArticle, meta as http3Quic } from './http3-quic';
+import { PostgresMvccArticle, meta as postgresMvcc } from './postgres-mvcc';
+import { TypescriptCompilerArticle, meta as typescriptCompiler } from './typescript-compiler';
+import { BashExpansionArticle, meta as bashExpansion } from './bash-expansion';
 import { DockerUnderTheHoodArticle, meta as dockerUnderTheHood } from './docker-under-the-hood';
 import { AdvancedTypeScriptArticle, meta as advancedTypescript } from './advanced-typescript';
 import { UsbSerialArticle, meta as usbSerial } from './usb-serial';
 import type { ArticleMeta } from './types';
 
 export const articles: ArticleMeta[] = [
+  { ...kubernetesScheduler, component: KubernetesSchedulerArticle },
+  { ...dockerBuildKit, component: DockerBuildKitArticle },
+  { ...nodeEventLoop, component: NodeEventLoopArticle },
+  { ...v8HiddenClasses, component: V8HiddenClassesArticle },
+  { ...terminalTtyPty, component: TerminalTtyPtyArticle },
+  { ...gitObjectDatabase, component: GitObjectDatabaseArticle },
+  { ...http3Quic, component: Http3QuicArticle },
+  { ...postgresMvcc, component: PostgresMvccArticle },
+  { ...typescriptCompiler, component: TypescriptCompilerArticle },
+  { ...bashExpansion, component: BashExpansionArticle },
   { ...dockerUnderTheHood, component: DockerUnderTheHoodArticle },
   { ...usbSerial, component: UsbSerialArticle },
   { ...advancedTypescript, component: AdvancedTypeScriptArticle },
