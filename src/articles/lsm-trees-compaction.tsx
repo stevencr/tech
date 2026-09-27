@@ -189,11 +189,11 @@ account:7 -> active   // older SSTable
       <ArticleSection title="A useful experiment">
         <p>You can make LSM behaviour tangible without deploying a distributed database. Run an embedded LSM-based store with a small memtable and deliberately create many versions of the same keys.</p>
         <ArticleCode>{`for (let i = 0; i < 100_000; i++) {
-  db.put(`user:${i % 1000}`, String(i));
+  db.put('user:' + (i % 1000), String(i));
 }
 
 for (let i = 0; i < 1000; i++) {
-  db.get(`user:${i}`);
+  db.get('user:' + i);
 }`}</ArticleCode>
         <p>Then observe the storage directory while writes continue. Look for new SSTables, compaction activity and changes in file count. Repeat with a workload that writes unique keys rather than repeatedly updating the same keys.</p>
         <p>The second workload has little obsolete history. The first creates a great deal of overwritten state. Comparing them makes the purpose of compaction much easier to see.</p>
