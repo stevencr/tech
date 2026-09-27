@@ -3,6 +3,8 @@ import { ArticleCard } from '../components/ArticleCard';
 import { articles } from '../articles';
 
 export function Home() {
+  const latestArticle = articles[0];
+
   return (
     <section className="home">
       <div className="home__eyebrow">
@@ -22,9 +24,11 @@ export function Home() {
         and occasionally gloriously geeky.
       </p>
       <div className="home__actions">
-        <NavLink className="home__button" to={`/articles/${articles[0].slug}`}>
-          Read latest article →
-        </NavLink>
+        {latestArticle && (
+          <NavLink className="home__button" to={`/articles/${latestArticle.slug}`}>
+            Read latest article →
+          </NavLink>
+        )}
         <a className="home__button home__button--secondary" href="#library">
           Browse the library
         </a>
@@ -37,7 +41,11 @@ export function Home() {
           <ArticleCard key={article.slug} article={article} index={index} />
         ))}
       </div>
-      <p className="home__note">New notes will appear here as the library grows.</p>
+      <p className="home__note">
+        {articles.length === 0
+          ? 'The library is currently empty. New notes will appear here as the library grows.'
+          : 'New notes will appear here as the library grows.'}
+      </p>
     </section>
   );
 }
