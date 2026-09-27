@@ -21,6 +21,7 @@ import { ReactReconciliationArticle, meta as reactReconciliation } from './react
 import { ConsistentHashingArticle, meta as consistentHashing } from './consistent-hashing';
 import { TlsHandshakeArticle, meta as tlsHandshake } from './tls-handshake';
 import { WasiWebAssemblyArticle, meta as wasiWebAssembly } from './wasi-webassembly';
+import { LsmTreesCompactionArticle, meta as lsmTreesCompaction } from './lsm-trees-compaction';
 import type { ArticleMeta } from './types';
 
 export const articles: ArticleMeta[] = [
@@ -47,4 +48,5 @@ export const articles: ArticleMeta[] = [
   { ...consistentHashing, component: ConsistentHashingArticle },
   { ...tlsHandshake, component: TlsHandshakeArticle },
   { ...wasiWebAssembly, component: WasiWebAssemblyArticle },
+  { ...lsmTreesCompaction, component: LsmTreesCompactionArticle },
 ];
