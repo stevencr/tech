@@ -8,6 +8,8 @@ import { meta as ebpfVerifierMeta } from './ebpf-verifier';
 import { meta as linuxPageCacheMeta } from './linux-page-cache';
 import { meta as unixPipelinesMeta } from './unix-pipelines';
 import { meta as tcpListenBacklogMeta } from './tcp-listen-backlog';
+import { V8HiddenClassesInlineCachesArticle } from './v8-hidden-classes-inline-caches';
+import { meta as v8HiddenClassesInlineCachesMeta } from './v8-hidden-classes-inline-caches';
 
 export const articles = [
   { ...tcpListenBacklogMeta, component: TcpListenBacklogArticle },
@@ -15,4 +17,5 @@ export const articles = [
   { ...unixPipelinesMeta, component: UnixPipelinesArticle },
   { ...ebpfVerifierMeta, component: EbpfVerifierArticle },
   { ...linuxPageCacheMeta, component: LinuxPageCacheArticle },
+  { ...v8HiddenClassesInlineCachesMeta, component: V8HiddenClassesInlineCachesArticle },
 ];
