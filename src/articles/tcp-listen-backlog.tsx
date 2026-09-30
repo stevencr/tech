@@ -121,7 +121,7 @@ listen(fd, 1024);
 for (;;) {
     int client = accept(fd, NULL, NULL);
     handle(client);
-}</code></pre>
+&#125;</code></pre>
 
       <p>
         The integer passed to <code>listen()</code> is commonly called the
@@ -256,7 +256,7 @@ sleep(5);
 for (;;) {
     int client = accept(fd, NULL, NULL);
     /* handle client */
-}</code></pre>
+&#125;</code></pre>
 
       <p>
         Generate a burst of connections and watch <code>ss</code> while varying
