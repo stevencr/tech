@@ -290,7 +290,7 @@ read(value)</code></pre>
 
       <pre><code>for (i = 0; i &lt; 16; i++) {
     inspect(packet[i]);
-}</code></pre>
+&#125;</code></pre>
 
       <p>
         A small fixed upper bound is easy to reason about. A bound that depends
