@@ -62,3 +62,8 @@ npm install
 npm run dev
 npm run build
 ```
+
+
+## AI agent guidance
+
+AI agents creating or modifying articles should also follow [`skills.md`](./skills.md), which contains the detailed implementation workflow, JSX code-block safety rules and final verification checklist.
