@@ -118,7 +118,7 @@ application socket</code></pre>
 bind(fd, ...);
 listen(fd, 1024);
 
-for (;;) {
+for (;;) &#123;
     int client = accept(fd, NULL, NULL);
     handle(client);
 &#125;</code></pre>
@@ -253,7 +253,7 @@ ss -s</code></pre>
 /* artificial consumer bottleneck */
 sleep(5);
 
-for (;;) {
+for (;;) &#123;
     int client = accept(fd, NULL, NULL);
     /* handle client */
 &#125;</code></pre>
