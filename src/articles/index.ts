@@ -12,10 +12,13 @@ import { meta as unixPipelinesMeta } from './unix-pipelines';
 import { meta as tcpListenBacklogMeta } from './tcp-listen-backlog';
 import { V8HiddenClassesInlineCachesArticle } from './v8-hidden-classes-inline-caches';
 import { meta as v8HiddenClassesInlineCachesMeta } from './v8-hidden-classes-inline-caches';
+import { KubernetesSchedulerUnderTheHoodArticle } from './kubernetes-scheduler-under-the-hood';
+import { meta as kubernetesSchedulerUnderTheHoodMeta } from './kubernetes-scheduler-under-the-hood';
 
 export const articles = [
   { ...linuxFutexesMeta, component: LinuxFutexesArticle },
   { ...linuxPidfdsMeta, component: LinuxPidfdsArticle },
+  { ...kubernetesSchedulerUnderTheHoodMeta, component: KubernetesSchedulerUnderTheHoodArticle },
   { ...tcpListenBacklogMeta, component: TcpListenBacklogArticle },
   { ...tls13HandshakeMeta, component: Tls13HandshakeArticle },
   { ...unixPipelinesMeta, component: UnixPipelinesArticle },
