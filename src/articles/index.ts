@@ -14,11 +14,14 @@ import { V8HiddenClassesInlineCachesArticle } from './v8-hidden-classes-inline-c
 import { meta as v8HiddenClassesInlineCachesMeta } from './v8-hidden-classes-inline-caches';
 import { KubernetesSchedulerUnderTheHoodArticle } from './kubernetes-scheduler-under-the-hood';
 import { meta as kubernetesSchedulerUnderTheHoodMeta } from './kubernetes-scheduler-under-the-hood';
+import { PtyTerminalsArticle } from './pty-terminals';
+import { meta as ptyTerminalsMeta } from './pty-terminals';
 
 export const articles = [
   { ...linuxFutexesMeta, component: LinuxFutexesArticle },
   { ...linuxPidfdsMeta, component: LinuxPidfdsArticle },
   { ...kubernetesSchedulerUnderTheHoodMeta, component: KubernetesSchedulerUnderTheHoodArticle },
+  { ...ptyTerminalsMeta, component: PtyTerminalsArticle },
   { ...tcpListenBacklogMeta, component: TcpListenBacklogArticle },
   { ...tls13HandshakeMeta, component: Tls13HandshakeArticle },
   { ...unixPipelinesMeta, component: UnixPipelinesArticle },
