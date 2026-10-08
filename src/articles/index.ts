@@ -16,12 +16,15 @@ import { KubernetesSchedulerUnderTheHoodArticle } from './kubernetes-scheduler-u
 import { meta as kubernetesSchedulerUnderTheHoodMeta } from './kubernetes-scheduler-under-the-hood';
 import { PtyTerminalsArticle } from './pty-terminals';
 import { meta as ptyTerminalsMeta } from './pty-terminals';
+import { ContainerStartupUnderTheHoodArticle } from './container-startup-under-the-hood';
+import { meta as containerStartupUnderTheHoodMeta } from './container-startup-under-the-hood';
 
 export const articles = [
   { ...linuxFutexesMeta, component: LinuxFutexesArticle },
   { ...linuxPidfdsMeta, component: LinuxPidfdsArticle },
   { ...kubernetesSchedulerUnderTheHoodMeta, component: KubernetesSchedulerUnderTheHoodArticle },
   { ...ptyTerminalsMeta, component: PtyTerminalsArticle },
+  { ...containerStartupUnderTheHoodMeta, component: ContainerStartupUnderTheHoodArticle },
   { ...tcpListenBacklogMeta, component: TcpListenBacklogArticle },
   { ...tls13HandshakeMeta, component: Tls13HandshakeArticle },
   { ...unixPipelinesMeta, component: UnixPipelinesArticle },
