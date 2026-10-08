@@ -16,6 +16,8 @@ import { KubernetesSchedulerUnderTheHoodArticle } from './kubernetes-scheduler-u
 import { meta as kubernetesSchedulerUnderTheHoodMeta } from './kubernetes-scheduler-under-the-hood';
 import { PtyTerminalsArticle } from './pty-terminals';
 import { meta as ptyTerminalsMeta } from './pty-terminals';
+import { ContainerStartupUnderTheHoodArticle } from './container-startup-under-the-hood';
+import { meta as containerStartupUnderTheHoodMeta } from './container-startup-under-the-hood';
 
 export const articles = [
   { ...linuxFutexesMeta, component: LinuxFutexesArticle },
@@ -27,4 +29,5 @@ export const articles = [
   { ...unixPipelinesMeta, component: UnixPipelinesArticle },
   { ...linuxPageCacheMeta, component: LinuxPageCacheArticle },
   { ...v8HiddenClassesInlineCachesMeta, component: V8HiddenClassesInlineCachesArticle },
+  { ...containerStartupUnderTheHoodMeta, component: ContainerStartupUnderTheHoodArticle },
 ];
