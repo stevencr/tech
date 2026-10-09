@@ -18,6 +18,8 @@ import { PtyTerminalsArticle } from './pty-terminals';
 import { meta as ptyTerminalsMeta } from './pty-terminals';
 import { ContainerStartupUnderTheHoodArticle } from './container-startup-under-the-hood';
 import { meta as containerStartupUnderTheHoodMeta } from './container-startup-under-the-hood';
+import { LinuxNameResolutionUnderTheHoodArticle } from './linux-name-resolution-under-the-hood';
+import { meta as linuxNameResolutionUnderTheHoodMeta } from './linux-name-resolution-under-the-hood';
 
 export const articles = [
   { ...linuxFutexesMeta, component: LinuxFutexesArticle },
@@ -30,4 +32,5 @@ export const articles = [
   { ...linuxPageCacheMeta, component: LinuxPageCacheArticle },
   { ...v8HiddenClassesInlineCachesMeta, component: V8HiddenClassesInlineCachesArticle },
   { ...containerStartupUnderTheHoodMeta, component: ContainerStartupUnderTheHoodArticle },
+  { ...linuxNameResolutionUnderTheHoodMeta, component: LinuxNameResolutionUnderTheHoodArticle },
 ];
