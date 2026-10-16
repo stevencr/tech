@@ -117,11 +117,11 @@ export function FileWatchersAreNotEventLogsArticle() {
 
       <pre><code>mkdir watcher-lab
 cd watcher-lab
-printf 'old version\n' > settings.json
+printf 'old version\n' &gt; settings.json
 
 # In another terminal, watch this directory with inotifywait.
 # Then simulate an atomic-save style replacement:
-printf 'new version\n' > settings.json.tmp
+printf 'new version\n' &gt; settings.json.tmp
 mv settings.json.tmp settings.json
 cat settings.json</code></pre>
 
