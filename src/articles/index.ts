@@ -21,6 +21,9 @@ import { meta as containerStartupUnderTheHoodMeta } from './container-startup-un
 import { TypeScriptControlFlowAnalysisArticle } from './typescript-control-flow-analysis';
 import { meta as typescriptControlFlowAnalysisMeta } from './typescript-control-flow-analysis';
 
+import { FileWatchersAreNotEventLogsArticle } from './file-watchers-are-not-event-logs';
+import { meta as fileWatchersAreNotEventLogsMeta } from './file-watchers-are-not-event-logs';
+
 export const articles = [
   { ...linuxFutexesMeta, component: LinuxFutexesArticle },
   { ...linuxPidfdsMeta, component: LinuxPidfdsArticle },
@@ -33,4 +36,5 @@ export const articles = [
   { ...v8HiddenClassesInlineCachesMeta, component: V8HiddenClassesInlineCachesArticle },
   { ...containerStartupUnderTheHoodMeta, component: ContainerStartupUnderTheHoodArticle },
   { ...typescriptControlFlowAnalysisMeta, component: TypeScriptControlFlowAnalysisArticle },
+  { ...fileWatchersAreNotEventLogsMeta, component: FileWatchersAreNotEventLogsArticle },
 ];
