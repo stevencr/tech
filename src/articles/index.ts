@@ -20,6 +20,8 @@ import { ContainerStartupUnderTheHoodArticle } from './container-startup-under-t
 import { meta as containerStartupUnderTheHoodMeta } from './container-startup-under-the-hood';
 import { TypeScriptControlFlowAnalysisArticle } from './typescript-control-flow-analysis';
 import { meta as typescriptControlFlowAnalysisMeta } from './typescript-control-flow-analysis';
+import { LsmTreesCompactionDebtArticle } from './lsm-trees-compaction-debt';
+import { meta as lsmTreesCompactionDebtMeta } from './lsm-trees-compaction-debt';
 
 export const articles = [
   { ...linuxFutexesMeta, component: LinuxFutexesArticle },
@@ -33,4 +35,5 @@ export const articles = [
   { ...v8HiddenClassesInlineCachesMeta, component: V8HiddenClassesInlineCachesArticle },
   { ...containerStartupUnderTheHoodMeta, component: ContainerStartupUnderTheHoodArticle },
   { ...typescriptControlFlowAnalysisMeta, component: TypeScriptControlFlowAnalysisArticle },
+  { ...lsmTreesCompactionDebtMeta, component: LsmTreesCompactionDebtArticle },
 ];
