@@ -22,6 +22,8 @@ import { TypeScriptControlFlowAnalysisArticle } from './typescript-control-flow-
 import { meta as typescriptControlFlowAnalysisMeta } from './typescript-control-flow-analysis';
 import { LsmTreesCompactionDebtArticle } from './lsm-trees-compaction-debt';
 import { meta as lsmTreesCompactionDebtMeta } from './lsm-trees-compaction-debt';
+import { AbaProblemMemoryReclamationArticle } from './aba-problem-memory-reclamation';
+import { meta as abaProblemMemoryReclamationMeta } from './aba-problem-memory-reclamation';
 
 export const articles = [
   { ...linuxFutexesMeta, component: LinuxFutexesArticle },
@@ -36,4 +38,5 @@ export const articles = [
   { ...containerStartupUnderTheHoodMeta, component: ContainerStartupUnderTheHoodArticle },
   { ...typescriptControlFlowAnalysisMeta, component: TypeScriptControlFlowAnalysisArticle },
   { ...lsmTreesCompactionDebtMeta, component: LsmTreesCompactionDebtArticle },
+  { ...abaProblemMemoryReclamationMeta, component: AbaProblemMemoryReclamationArticle },
 ];
