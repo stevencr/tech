@@ -143,3 +143,21 @@ export function HttpCachingStateMachineArticle() {
         knob.
       </p>
 
+      <h2>5. Stale does not mean unusable</h2>
+
+      <p>
+        When freshness expires, a response becomes stale: it is no longer
+        reusable under ordinary freshness rules without validation or another
+        explicit permission. It is not necessarily corrupt or definitely old.
+        The cache can revalidate it, replace it, discard it, or sometimes
+        serve it stale under carefully defined conditions.
+      </p>
+
+      <p>
+        <code>stale-while-revalidate</code> permits a cache to return a stale
+        response while it attempts validation in the background.
+        <code> stale-if-error</code> can permit stale content when the origin
+        fails. These directives encode a product decision: how much staleness
+        is acceptable in exchange for latency or availability?
+      </p>
+
