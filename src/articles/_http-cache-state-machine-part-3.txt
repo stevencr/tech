@@ -1,0 +1,55 @@
+      <h2>8. Invalidation is not the same as freshness</h2>
+
+      <p>
+        A time-to-live policy answers how long a response may be reused
+        without validation. It does not provide instantaneous global
+        invalidation. If a price changes just after a response is cached for
+        five minutes, a cache may still be allowed to serve the old value
+        during that window.
+      </p>
+
+      <p>
+        Short freshness lifetimes bound the unvalidated window. CDN purge
+        APIs can invalidate stored entries, but propagation and failure
+        handling matter. Versioned URLs avoid ambiguity for immutable assets:
+        a new build emits a new URL, so new bytes are not confused with the
+        old representation under the same name.
+      </p>
+
+      <pre><code>{["/assets/app.4c91e8.js   Cache-Control: public, max-age=31536000, immutable", "/index.html             Cache-Control: no-cache"].join('\n')}</code></pre>
+
+      <p>
+        This pairing lets a browser keep a fingerprinted bundle for a long
+        time while checking the HTML document for a newer bundle reference.
+        Deployment order matters: new HTML must not reference assets that
+        have not been published yet, and old assets should remain available
+        long enough for clients holding old HTML to request them.
+      </p>
+
+      <h2>9. Expiry creates load: the cache-stampede problem</h2>
+
+      <p>
+        A hot key can serve thousands of requests cheaply until it expires.
+        If many clients notice the miss at once, they can all fetch the same
+        object from the origin. The resulting burst can overload the very
+        service the cache was meant to protect.
+      </p>
+
+      <p>
+        Shared caches can collapse concurrent misses so one origin fetch
+        satisfies many waiting clients. Other tools include jittering
+        expiry times, prewarming known hot objects, stale-while-revalidate,
+        and single-flight logic around expensive application fetches.
+        Each has limits: jitter reduces synchronisation but does not guarantee
+        one fetch; process-local single-flight does not coordinate across
+        replicas; a distributed lock needs safe lease behaviour.
+      </p>
+
+      <p>
+        Treat expiry as scheduled load, not just a timestamp. Entries
+        populated by one deployment may share similar lifetimes and expire
+        together. Track origin request rate, miss and revalidation rates,
+        collapsed requests, backend latency and the distribution of cache
+        ages to see whether a cache is smoothing load or merely postponing it.
+      </p>
+
