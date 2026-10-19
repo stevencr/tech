@@ -25,6 +25,13 @@ import { meta as lsmTreesCompactionDebtMeta } from './lsm-trees-compaction-debt'
 import { HttpCachingStateMachineArticle } from './http-cache-state-machine';
 import { meta as httpCachingStateMachineMeta } from './http-cache-state-machine';
 
+import { AbaProblemMemoryReclamationArticle } from './aba-problem-memory-reclamation';
+import { meta as abaProblemMemoryReclamationMeta } from './aba-problem-memory-reclamation';
+import { LinuxNameResolutionUnderTheHoodArticle } from './linux-name-resolution-under-the-hood';
+import { meta as linuxNameResolutionUnderTheHoodMeta } from './linux-name-resolution-under-the-hood';
+import { FileWatchersAreNotEventLogsArticle } from './file-watchers-are-not-event-logs';
+import { meta as fileWatchersAreNotEventLogsMeta } from './file-watchers-are-not-event-logs';
+
 export const articles = [
   { ...linuxFutexesMeta, component: LinuxFutexesArticle },
   { ...linuxPidfdsMeta, component: LinuxPidfdsArticle },
@@ -39,4 +46,7 @@ export const articles = [
   { ...typescriptControlFlowAnalysisMeta, component: TypeScriptControlFlowAnalysisArticle },
   { ...lsmTreesCompactionDebtMeta, component: LsmTreesCompactionDebtArticle },
   { ...httpCachingStateMachineMeta, component: HttpCachingStateMachineArticle },
+  { ...abaProblemMemoryReclamationMeta, component: AbaProblemMemoryReclamationArticle },
+  { ...linuxNameResolutionUnderTheHoodMeta, component: LinuxNameResolutionUnderTheHoodArticle },
+  { ...fileWatchersAreNotEventLogsMeta, component: FileWatchersAreNotEventLogsArticle },
 ];
