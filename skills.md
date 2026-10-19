@@ -4,12 +4,16 @@ This file is the implementation guide for AI agents creating or modifying articl
 
 ## Non-negotiable workflow
 
+**Publish directly to `main` by default. Do not create a feature branch or pull request for routine article work.** Make the article and registry changes on `main`, commit/push them there, and then verify the resulting GitHub Actions build and deployment. If repository protection or permissions prevent a direct push, do not claim success or silently leave work on a branch: explain the blocker clearly and ask for the minimum intervention needed.
+
 Before committing an article change:
 
-1. Inspect `src/articles/_template.tsx` and an existing article.
-2. Follow the existing `ArticleLayout`, metadata and registry architecture.
-3. Run `npm run build` locally or otherwise verify TypeScript compilation before considering the change complete.
-4. Check the GitHub Actions build after pushing. Do not report deployment success until the workflow is completed successfully.
+1. Inspect `src/articles/_template.tsx`, the article registry, and at least one existing article.
+2. Search existing article titles, slugs and topics to avoid duplicates.
+3. Follow the existing `ArticleLayout`, metadata and registry architecture.
+4. Run `npm run build` locally or otherwise verify TypeScript compilation before considering the change complete.
+5. Prefer a direct commit/push to `main`; do not use a PR/branch workflow unless a direct update is rejected by repository rules.
+6. Check the GitHub Actions build after pushing to `main`. Do not report deployment success until the workflow is completed successfully.
 
 ## JSX code-block safety
 
@@ -113,7 +117,7 @@ Articles should be senior-level technical deep dives covering, where relevant:
 - wider systems connection
 - concise takeaway
 
-Do not mechanically force every section.
+Do not mechanically force every section. Aim for a substantial 15–30 minute read.
 
 ## Final verification checklist
 
@@ -125,4 +129,5 @@ Before saying an article is complete:
 - [ ] Article is registered exactly once.
 - [ ] Metadata is complete.
 - [ ] `npm run build` passes.
+- [ ] Changes are on `main` (or the direct-push blocker is explicitly reported).
 - [ ] GitHub Actions build passes after push.
