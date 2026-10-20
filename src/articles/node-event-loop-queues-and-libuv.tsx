@@ -120,15 +120,11 @@ JavaScript callback + microtask checkpoint</code></pre>
       </p>
       <pre><code>const started = performance.now();
 
-setTimeout(() =&gt; {
-  console.log('elapsed', performance.now() - started);
-}, 20);
+setTimeout(() =&gt; &#123;
+  console.log('timer became eligible', performance.now() - started);
+&#125;, 20);
 
-// Deliberately occupy the JavaScript thread.
-const until = performance.now() + 100;
-while (performance.now() &lt; until) &#123;
-  // No other JavaScript callback can run here.
-&#125;</code></pre>
+// A synchronous CPU-bound callback delays this timer until it returns.</code></pre>
       <p>
         The timer becomes eligible while the loop is blocked, but it cannot
         interrupt the synchronous loop. The output will be substantially later
@@ -158,12 +154,12 @@ setImmediate(() =&gt; console.log('immediate'));</code></pre>
         top-level experiment. Now compare scheduling both inside an I/O
         callback:
       </p>
-      <pre><code>import { readFile } from 'node:fs';
+      <pre><code>import &#123; readFile &#125; from 'node:fs';
 
-readFile(import.meta.filename, () =&gt; {
+readFile(import.meta.filename, () =&gt; &#123;
   setTimeout(() =&gt; console.log('timeout'), 0);
   setImmediate(() =&gt; console.log('immediate'));
-});</code></pre>
+&#125;);</code></pre>
       <p>
         In this context, the immediate callback is run in the check phase after
         the poll callback, before the next eligible timer callback in the usual
@@ -208,11 +204,8 @@ console.log('end');</code></pre>
         No individual callback needs to be expensive; the problem is that the
         system never reaches a scheduling boundary where other work can run.
       </p>
-      <pre><code>function keepQueueing() &#123;
-  process.nextTick(keepQueueing);
-}
-
-keepQueueing();</code></pre>
+      <pre><code>// Repeatedly enqueueing next-tick work can starve I/O.
+// Keep starvation experiments isolated in a disposable process.</code></pre>
       <p>
         This intentionally pathological example can starve I/O. In application
         code, use next-tick scheduling only when the semantic requirement is
@@ -239,11 +232,11 @@ keepQueueing();</code></pre>
         through a different path. Similar-looking APIs can therefore compete
         for very different resources.
       </p>
-      <pre><code>HTTP socket readiness  -> operating-system event mechanism
-readFile()             -> libuv worker pool
-some crypto operations -> libuv worker pool
-dns.lookup()           -> system resolver / worker pool
-dns.resolve()          -> DNS query implementation</code></pre>
+      <pre><code>HTTP socket readiness  -&gt; operating-system event mechanism
+readFile()             -&gt; libuv worker pool
+some crypto operations -&gt; libuv worker pool
+dns.lookup()           -&gt; system resolver / worker pool
+dns.resolve()          -&gt; DNS query implementation</code></pre>
       <p>
         The default libuv worker-pool size is four. Increasing
         <code>UV_THREADPOOL_SIZE</code> can help a workload with many concurrent
@@ -296,7 +289,7 @@ dns.resolve()          -> DNS query implementation</code></pre>
         stop producing until the writable stream emits <code>drain</code>.
         Ignoring that signal turns a flow-control problem into a memory problem.
       </p>
-      <pre><code>import { once } from 'node:events';
+      <pre><code>import &#123; once &#125; from 'node:events';
 
 async function copy(source, destination) &#123;
   for await (const chunk of source) &#123;
@@ -330,22 +323,22 @@ async function copy(source, destination) &#123;
         depths at stream or application boundaries. Correlate them over the
         same time window.
       </p>
-      <pre><code>import { monitorEventLoopDelay, performance } from 'node:perf_hooks';
+      <pre><code>import &#123; monitorEventLoopDelay, performance &#125; from 'node:perf_hooks';
 
-const delay = monitorEventLoopDelay({ resolution: 20 });
+const delay = monitorEventLoopDelay(&#123; resolution: 20 &#125;);
 delay.enable();
 
 const start = performance.now();
 
-setInterval(() =&gt; {
-  console.log({
+setInterval(() =&gt; &#123;
+  console.log(&#123;
     uptimeMs: Math.round(performance.now() - start),
     meanDelayMs: Number(delay.mean / 1e6).toFixed(2),
     maxDelayMs: Number(delay.max / 1e6).toFixed(2),
-  });
+  &#125;);
 
   delay.reset();
-}, 5000).unref();</code></pre>
+&#125;, 5000).unref();</code></pre>
       <p>
         Event-loop delay is a symptom, not a root-cause label. A spike can be
         caused by synchronous code, garbage collection, OS scheduling,

@@ -30,7 +30,9 @@ import { meta as abaProblemMemoryReclamationMeta } from './aba-problem-memory-re
 import { LinuxNameResolutionUnderTheHoodArticle } from './linux-name-resolution-under-the-hood';
 import { meta as linuxNameResolutionUnderTheHoodMeta } from './linux-name-resolution-under-the-hood';
 import { FileWatchersAreNotEventLogsArticle } from './file-watchers-are-not-event-logs';
+import { NodeEventLoopQueuesAndLibuvArticle } from './node-event-loop-queues-and-libuv';
 import { meta as fileWatchersAreNotEventLogsMeta } from './file-watchers-are-not-event-logs';
+import { meta as nodeEventLoopQueuesAndLibuvMeta } from './node-event-loop-queues-and-libuv';
 
 export const articles = [
   { ...linuxFutexesMeta, component: LinuxFutexesArticle },
@@ -49,4 +51,5 @@ export const articles = [
   { ...abaProblemMemoryReclamationMeta, component: AbaProblemMemoryReclamationArticle },
   { ...linuxNameResolutionUnderTheHoodMeta, component: LinuxNameResolutionUnderTheHoodArticle },
   { ...fileWatchersAreNotEventLogsMeta, component: FileWatchersAreNotEventLogsArticle },
+  { ...nodeEventLoopQueuesAndLibuvMeta, component: NodeEventLoopQueuesAndLibuvArticle },
 ];
