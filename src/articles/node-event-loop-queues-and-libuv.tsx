@@ -120,9 +120,9 @@ JavaScript callback + microtask checkpoint</code></pre>
       </p>
       <pre><code>const started = performance.now();
 
-setTimeout(() =&gt; &#123;
+setTimeout(() =&gt; {'{'}
   console.log('timer became eligible', performance.now() - started);
-&#125;, 20);
+{'}'}, 20);
 
 // A synchronous CPU-bound callback delays this timer until it returns.</code></pre>
       <p>
@@ -154,12 +154,12 @@ setImmediate(() =&gt; console.log('immediate'));</code></pre>
         top-level experiment. Now compare scheduling both inside an I/O
         callback:
       </p>
-      <pre><code>import &#123; readFile &#125; from 'node:fs';
+      <pre><code>import {'{'} readFile {'}'} from 'node:fs';
 
-readFile(import.meta.filename, () =&gt; &#123;
+readFile(import.meta.filename, () =&gt; {'{'}
   setTimeout(() =&gt; console.log('timeout'), 0);
   setImmediate(() =&gt; console.log('immediate'));
-&#125;);</code></pre>
+{'}'});</code></pre>
       <p>
         In this context, the immediate callback is run in the check phase after
         the poll callback, before the next eligible timer callback in the usual
@@ -289,17 +289,17 @@ dns.resolve()          -&gt; DNS query implementation</code></pre>
         stop producing until the writable stream emits <code>drain</code>.
         Ignoring that signal turns a flow-control problem into a memory problem.
       </p>
-      <pre><code>import &#123; once &#125; from 'node:events';
+      <pre><code>import {'{'} once {'}'} from 'node:events';
 
-async function copy(source, destination) &#123;
-  for await (const chunk of source) &#123;
-    if (!destination.write(chunk)) &#123;
+async function copy(source, destination) {'{'}
+  for await (const chunk of source) {'{'}
+    if (!destination.write(chunk)) {'{'}
       await once(destination, 'drain');
-    &#125;
-  &#125;
+    {'}'}
+  {'}'}
 
   destination.end();
-&#125;</code></pre>
+{'}'}</code></pre>
       <p>
         This is the same principle used in TCP flow control, bounded queues,
         message brokers and reactive systems: a producer needs feedback from
@@ -323,22 +323,22 @@ async function copy(source, destination) &#123;
         depths at stream or application boundaries. Correlate them over the
         same time window.
       </p>
-      <pre><code>import &#123; monitorEventLoopDelay, performance &#125; from 'node:perf_hooks';
+      <pre><code>import {'{'} monitorEventLoopDelay, performance {'}'} from 'node:perf_hooks';
 
-const delay = monitorEventLoopDelay(&#123; resolution: 20 &#125;);
+const delay = monitorEventLoopDelay({'{'} resolution: 20 {'}'});
 delay.enable();
 
 const start = performance.now();
 
-setInterval(() =&gt; &#123;
-  console.log(&#123;
+setInterval(() =&gt; {'{'}
+  console.log({'{'}
     uptimeMs: Math.round(performance.now() - start),
     meanDelayMs: Number(delay.mean / 1e6).toFixed(2),
     maxDelayMs: Number(delay.max / 1e6).toFixed(2),
-  &#125;);
+  {'}'});
 
   delay.reset();
-&#125;, 5000).unref();</code></pre>
+{'}'}, 5000).unref();</code></pre>
       <p>
         Event-loop delay is a symptom, not a root-cause label. A spike can be
         caused by synchronous code, garbage collection, OS scheduling,
