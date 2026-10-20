@@ -40,12 +40,12 @@ Bad:
 Safe:
 
 ```tsx
-<pre><code>for (;;) &#123;
+<pre><code>for (;;) {'{'}
   handle();
-&#125;</code></pre>
+{'}'}</code></pre>
 ```
 
-Use `&#123;` for `{` and `&#125;` for `}`. This applies to **both opening and closing braces**, including examples containing blocks, object literals, functions, JSON, CSS, shell snippets and configuration.
+**Preferred rule for this repository:** escape literal braces in JSX code examples with JSX expressions: `{'{'}` for an opening brace and `{'}'}` for a closing brace. Do not rely on numeric HTML entities such as `&#123;` / `&#125;` in article code blocks: they caused TypeScript parser errors in a real GitHub Actions build here. Apply the JSX expressions consistently to blocks, object literals, functions, JSON, CSS, shell snippets and configuration. After editing examples, run the full build; a visual scan alone is not enough.
 
 ### Angle brackets
 
@@ -70,7 +70,7 @@ Watch for:
 - JSX closing sequences such as `</code>` appearing inside an example.
 - Template literals or other examples whose contents could accidentally become JSX syntax.
 
-When an example is large or syntax-heavy, prefer a JSX expression containing a string/template literal rather than manually embedding complex syntax as JSX text, provided this remains consistent with the existing article style.
+For large or syntax-heavy examples, consider a JSX expression containing a string/template literal if that makes escaping clearer. Keep the approach consistent with nearby articles, and still run the build to verify the JSX parser accepts it.
 
 ## Code examples
 
@@ -124,7 +124,7 @@ Do not mechanically force every section. Aim for a substantial 15–30 minute re
 Before saying an article is complete:
 
 - [ ] Article component compiles.
-- [ ] JSX code blocks contain no unescaped `{` or `}`.
+- [ ] JSX code blocks render literal braces using `{'{'}` and `{'}'}` (not numeric brace entities).
 - [ ] JSX code blocks contain no accidentally parsed HTML-like syntax.
 - [ ] Article is registered exactly once.
 - [ ] Metadata is complete.
