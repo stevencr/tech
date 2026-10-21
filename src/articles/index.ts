@@ -49,7 +49,7 @@ export const articles = [
   { ...containerStartupUnderTheHoodMeta, component: ContainerStartupUnderTheHoodArticle },
   { ...typescriptControlFlowAnalysisMeta, component: TypeScriptControlFlowAnalysisArticle },
   { ...lsmTreesCompactionDebtMeta, component: LsmTreesCompactionDebtArticle },
-  { ...httpCacheStateMachineMeta, component: HttpCachingStateMachineArticle },
+  { ...httpCachingStateMachineMeta, component: HttpCachingStateMachineArticle },
   { ...abaProblemMemoryReclamationMeta, component: AbaProblemMemoryReclamationArticle },
   { ...linuxNameResolutionUnderTheHoodMeta, component: LinuxNameResolutionUnderTheHoodArticle },
   { ...fileWatchersAreNotEventLogsMeta, component: FileWatchersAreNotEventLogsArticle },
