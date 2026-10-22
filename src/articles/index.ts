@@ -36,6 +36,9 @@ import { NodeEventLoopQueuesAndLibuvArticle } from './node-event-loop-queues-and
 import { meta as fileWatchersAreNotEventLogsMeta } from './file-watchers-are-not-event-logs';
 import { meta as nodeEventLoopQueuesAndLibuvMeta } from './node-event-loop-queues-and-libuv';
 
+import { MvccSnapshotIsolationArticle } from './mvcc-snapshot-isolation';
+import { meta as mvccSnapshotIsolationMeta } from './mvcc-snapshot-isolation';
+
 export const articles = [
   { ...linuxFutexesMeta, component: LinuxFutexesArticle },
   { ...linuxPidfdsMeta, component: LinuxPidfdsArticle },
@@ -55,4 +58,5 @@ export const articles = [
   { ...fileWatchersAreNotEventLogsMeta, component: FileWatchersAreNotEventLogsArticle },
   { ...nodeEventLoopQueuesAndLibuvMeta, component: NodeEventLoopQueuesAndLibuvArticle },
   { ...browserRenderingPipelineMeta, component: BrowserRenderingPipelineArticle },
+  { ...mvccSnapshotIsolationMeta, component: MvccSnapshotIsolationArticle },
 ];
