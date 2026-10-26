@@ -1,6 +1,6 @@
 # Tech Notes — Article Authoring and Repository Skills
 
-This is the operating guide for AI agents working in `stevencr/tech`. Follow it for article creation, edits, architecture changes, deployment fixes and repository maintenance. Keep the site buildable at every meaningful step and make changes on `main` by default.
+This is the operating guide for AI agents working in `stevencr/tech`. Follow it for article creation, edits, architecture changes, deployment fixes and repository maintenance. Keep the site buildable at every meaningful step and make changes on `main` by default. **The Markdown migration is now the active architecture:** new articles must be Markdown files under `content/articles/`; do not add new TSX article components or restore the old manual registry.
 
 ## 1. Non-negotiable delivery workflow
 
@@ -20,11 +20,11 @@ For every change:
 
 A green run for an earlier commit is not proof that the latest commit builds. Match the run's head SHA to the commit being reported.
 
-## 2. Article architecture: current state and intended direction
+## 2. Article architecture: Markdown is the current architecture
 
-The repository currently has React/TypeScript article components under `src/articles/` and a registry in `src/articles/index.ts`. Do not claim the site has migrated to Markdown unless the migration has actually been implemented and verified.
+Articles are loaded at build time from `content/articles/*.md` by `src/lib/articles.ts`. Front matter is parsed and validated at build time; `src/components/MarkdownArticle.tsx` renders Markdown using ReactMarkdown and remark-gfm. There is no manual article registry. Do not recreate `src/articles/index.ts`.
 
-### Intended content-first architecture
+### Content-first architecture
 
 Long-form articles should ultimately live as Markdown files with front matter, rather than hand-written React components or JSON documents. Markdown is easier to author, review, diff and maintain for prose, lists, tables and fenced code blocks. JSON is a poor fit for long technical content because it adds escaping and structural noise; a database is unnecessary for a static, build-time editorial site.
 
@@ -64,24 +64,24 @@ A build-time loader should:
 
 Use the site's existing Markdown/rendering stack if one exists. If adding a dependency, inspect current packages first, choose a maintained minimal option compatible with the build, and document why it is needed. Do not add packages casually.
 
-### Migration must be a cohesive, build-verified task
+### Rules for future content and architecture changes
 
-Before converting the current TSX articles:
+When changing the Markdown architecture:
 
 1. Inventory every article, metadata field, route, card, navigation item, code example, image and internal link.
 2. Inspect the existing build/export and GitHub Pages base-path behaviour; preserve it.
 3. Implement the shared Markdown renderer/layout and build-time article loader/validation.
-4. Convert every existing article, preserving its full substantive content, examples, headings, links and metadata. Do not silently shorten, rewrite away details or drop articles.
+4. For any future migration, preserve substantive content, examples, headings, links and metadata unless the user explicitly asks to remove articles.
 5. Replace manual component imports with the generated/discovered article collection; update routes, cards, navigation and SEO metadata to use the same collection.
 6. Check code fences, syntax highlighting, heading anchors, internal links, responsive tables, images and social metadata.
-7. Remove obsolete TSX article components and registry code only after their Markdown replacements are verified.
+7. Keep obsolete TSX article components and the old registry removed; do not reintroduce them.
 8. Add validation for missing metadata, invalid/duplicate slugs, missing article files and broken internal article links where practical.
 9. Build and inspect the rendered site before pushing. Verify all article routes and the home page.
 10. Push to `main`, then confirm the workflow for the exact commit succeeds.
 
-Until this migration is complete, follow the current TSX conventions for ordinary article edits rather than creating Markdown files the app cannot yet render. If specifically tasked with the migration, complete the implementation rather than only changing this guide.
+The migration is implemented. New content must be Markdown; the TSX rules below are retained only as a reference for understanding legacy code and should not be used to author new articles.
 
-## 3. Current TSX authoring rules (until Markdown migration is complete)
+## 3. Legacy TSX notes (not for new articles)
 
 - One article is a self-contained React component using the shared `ArticleLayout`.
 - Follow existing metadata types and conventions; use kebab-case filenames and slugs.
@@ -119,7 +119,7 @@ Do **not** use numeric HTML entities `&#123;` and `&#125;` as a workaround for b
 
 Before committing TSX article changes, inspect every code block for JSX-sensitive characters and run the full build. A visual scan is not a substitute for compilation.
 
-### After Markdown migration
+### Markdown code blocks
 
 Markdown fenced code blocks should be stored as normal source text without JSX brace escaping. Do not carry TSX escaping artefacts such as `{'{' }` into Markdown examples. Use the Markdown renderer's code-fence and syntax-highlighting support, and test that literal code is rendered faithfully.
 

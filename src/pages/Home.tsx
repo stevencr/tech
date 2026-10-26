@@ -1,51 +1,43 @@
 import { NavLink } from 'react-router-dom';
+import type { ArticleMeta } from '../articles/types';
 import { ArticleCard } from '../components/ArticleCard';
-import { articles } from '../articles';
 
-export function Home() {
+type HomeProps = {
+  articles: ArticleMeta[];
+  onDelete: (article: ArticleMeta) => void;
+};
+
+export function Home({ articles, onDelete }: HomeProps) {
   const latestArticle = articles[0];
 
   return (
     <section className="home">
-      <div className="home__eyebrow">
-        <span />
-        Developer journal
-      </div>
-      <h1>
-        How does
-        <br />
-        <em>software</em>
-        <br />
-        work?
-      </h1>
+      <div className="home__eyebrow"><span /> Developer journal · Markdown powered</div>
+      <h1>How does<br /><em>software</em><br />work?</h1>
       <p className="home__intro">
-        Tech Notes is a collection of deep dives into the systems, languages,
-        protocols and ideas underneath modern software. Technical, practical
-        and occasionally gloriously geeky.
+        Tech Notes is a collection of practical deep dives into the systems, languages,
+        protocols and ideas underneath modern software. Articles live as Markdown files,
+        with metadata validated automatically during the build.
       </p>
       <div className="home__actions">
-        {latestArticle && (
-          <NavLink className="home__button" to={`/articles/${latestArticle.slug}`}>
-            Read latest article →
-          </NavLink>
-        )}
-        <a className="home__button home__button--secondary" href="#library">
-          Browse the library
-        </a>
+        {latestArticle && <NavLink className="home__button" to={'/articles/' + latestArticle.slug}>Read latest article →</NavLink>}
+        <a className="home__button home__button--secondary" href="#library">Browse the library</a>
       </div>
-      <div id="library" className="home__section-title">
-        Latest notes
-      </div>
-      <div className="home__cards">
-        {articles.map((article, index) => (
-          <ArticleCard key={article.slug} article={article} index={index} />
-        ))}
-      </div>
-      <p className="home__note">
-        {articles.length === 0
-          ? 'The library is currently empty. New notes will appear here as the library grows.'
-          : 'New notes will appear here as the library grows.'}
-      </p>
+      <div id="library" className="home__section-title">Article library</div>
+      {articles.length ? (
+        <div className="home__cards">
+          {articles.map((article, index) => (
+            <ArticleCard key={article.slug} article={article} index={index} onDelete={onDelete} />
+          ))}
+        </div>
+      ) : (
+        <div className="home__empty">
+          <h2>Your library is empty</h2>
+          <p>Articles hidden with Delete stay in the repository. Refresh the library to restore them.</p>
+          <button className="home__button" type="button" onClick={() => window.location.reload()}>Restore library</button>
+        </div>
+      )}
+      <p className="home__note">Each article is a Markdown file in <code>content/articles/</code>.</p>
     </section>
   );
 }

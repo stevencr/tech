@@ -4,17 +4,24 @@ import type { ArticleMeta } from '../articles/types';
 type ArticleCardProps = {
   article: ArticleMeta;
   index: number;
+  onDelete: (article: ArticleMeta) => void;
 };
 
-export function ArticleCard({ article, index }: ArticleCardProps) {
+export function ArticleCard({ article, index, onDelete }: ArticleCardProps) {
   return (
-    <NavLink className="home__card" to={`/articles/${article.slug}`}>
-      <span className="home__card-number">
-        {String(index + 1).padStart(2, '0')} · {article.category.toUpperCase()}
-      </span>
-      <h2>{article.title}</h2>
-      <p>{article.description}</p>
-      <span className="home__card-arrow">Read deep dive →</span>
-    </NavLink>
+    <article className="home__card">
+      <NavLink className="home__card-link" to={'/articles/' + article.slug}>
+        <span className="home__card-number">
+          {String(index + 1).padStart(2, '0')} · {article.category.toUpperCase()}
+        </span>
+        <h2>{article.title}</h2>
+        <p>{article.description}</p>
+        <span className="home__card-arrow">Read deep dive →</span>
+      </NavLink>
+      <button className="delete-button delete-button--card" type="button"
+        onClick={() => onDelete(article)} aria-label={'Delete ' + article.title}>
+        Delete
+      </button>
+    </article>
   );
 }
