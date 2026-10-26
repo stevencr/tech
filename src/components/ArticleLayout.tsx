@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import type { ArticleMeta } from '../articles/types';
+import type { ArticleMeta } from '../types/ArticleMeta';
 
 type ArticleLayoutProps = {
   meta: Pick<ArticleMeta, 'category' | 'title' | 'subtitle' | 'date' | 'readingTime' | 'tags'>;

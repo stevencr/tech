@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import type { ArticleMeta } from '../articles/types';
+import type { ArticleMeta } from '../types/ArticleMeta';
 import { ArticleLayout } from '../components/ArticleLayout';
 import { MarkdownArticle } from '../components/MarkdownArticle';
 

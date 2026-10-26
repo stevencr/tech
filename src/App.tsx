@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Route, Routes, useLocation } from 'react-router-dom';
 import { articles as allArticles } from './lib/articles';
 import { hideArticle, readHiddenArticleSlugs, restoreArticleLibrary } from './lib/articleLibrary';
-import type { ArticleMeta } from './articles/types';
+import type { ArticleMeta } from './types/ArticleMeta';
 import { SiteHeader } from './components/SiteHeader';
 import { SiteNavigation } from './components/SiteNavigation';
 import { SiteFooter } from './components/SiteFooter';

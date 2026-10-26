@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import type { ArticleMeta } from '../articles/types';
+import type { ArticleMeta } from '../types/ArticleMeta';
 
 type ArticleCardProps = {
   article: ArticleMeta;

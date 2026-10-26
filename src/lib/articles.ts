@@ -1,4 +1,4 @@
-import type { ArticleMeta } from '../articles/types';
+import type { ArticleMeta } from '../types/ArticleMeta';
 
 const markdownFiles = import.meta.glob('../../content/articles/*.md', {
   eager: true,
