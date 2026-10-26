@@ -34,7 +34,7 @@ export function Home({ articles, onDelete, onRestore }: HomeProps) {
       ) : (
         <div className="home__empty">
           <h2>Your library is empty</h2>
-          <p>Articles hidden with Delete stay in the repository. Refresh the library to restore them.</p>
+          <p>Articles hidden with Delete stay in the repository. Use Restore library to show them again.</p>
           <button className="home__button" type="button" onClick={onRestore}>Restore library</button>
         </div>
       )}
