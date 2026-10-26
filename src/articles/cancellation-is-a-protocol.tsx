@@ -210,8 +210,8 @@ controller.abort(new DOMException('Superseded', 'AbortError'));`}</code></pre>
   userId: string,
   signal: AbortSignal,
 ) {
-  const response = await fetch(`/api/users/\${userId}`, { signal });
-  if (!response.ok) throw new Error(`HTTP \${response.status}`);
+  const response = await fetch('/api/users/' + encodeURIComponent(userId), { signal });
+  if (!response.ok) throw new Error('HTTP ' + response.status);
   return response.json();
 }
 
@@ -308,7 +308,7 @@ async function search(query: string) {
 
   try {
     const response = await fetch(
-      `/api/search?q=\${encodeURIComponent(query)}`,
+      '/api/search?q=' + encodeURIComponent(query),
       { signal: controller.signal },
     );
     const results = await response.json();
