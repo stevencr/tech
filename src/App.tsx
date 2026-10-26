@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Route, Routes, useLocation } from 'react-router-dom';
 import { articles as allArticles } from './lib/articles';
-import { hideArticle, readHiddenArticleSlugs } from './lib/articleLibrary';
+import { hideArticle, readHiddenArticleSlugs, restoreArticleLibrary } from './lib/articleLibrary';
 import type { ArticleMeta } from './articles/types';
 import { SiteHeader } from './components/SiteHeader';
 import { SiteNavigation } from './components/SiteNavigation';
@@ -37,9 +37,15 @@ export default function App() {
     return () => window.removeEventListener('storage', syncHiddenArticles);
   }, []);
 
-  const handleDelete = (article: ArticleMeta) => {
-    if (!window.confirm('Remove "' + article.title + '" from this browser\'s library? The Markdown file in GitHub will not be deleted.')) return;
+  const handleDelete = (article: ArticleMeta): boolean => {
+    if (!window.confirm('Remove "' + article.title + '" from this browser\'s library? The Markdown file in GitHub will not be deleted.')) return false;
     setHiddenSlugs(hideArticle(article.slug));
+    return true;
+  };
+
+  const handleRestore = () => {
+    restoreArticleLibrary();
+    setHiddenSlugs([]);
   };
 
   return (
@@ -59,7 +65,7 @@ export default function App() {
               <Route key={article.slug} path={'/articles/' + article.slug}
                 element={<ArticlePage article={article} onDelete={handleDelete} />} />
             ))}
-            <Route path="*" element={<Home articles={visibleArticles} onDelete={handleDelete} />} />
+            <Route path="*" element={<Home articles={visibleArticles} onDelete={handleDelete} onRestore={handleRestore} />} />
           </Routes>
         </main>
       </div>

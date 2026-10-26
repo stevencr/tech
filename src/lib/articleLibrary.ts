@@ -15,4 +15,7 @@ export function hideArticle(slug: string): string[] {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
   return next;
 }
-\nexport function restoreArticleLibrary(): void {\n  localStorage.removeItem(STORAGE_KEY);\n}\n
+
+export function restoreArticleLibrary(): void {
+  localStorage.removeItem(STORAGE_KEY);
+}

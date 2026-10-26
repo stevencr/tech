@@ -4,7 +4,8 @@ import { ArticleCard } from '../components/ArticleCard';
 
 type HomeProps = {
   articles: ArticleMeta[];
-  onDelete: (article: ArticleMeta) => void;\n  onRestore: () => void;
+  onDelete: (article: ArticleMeta) => void;
+  onRestore: () => void;
 };
 
 export function Home({ articles, onDelete, onRestore }: HomeProps) {
