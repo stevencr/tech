@@ -1,43 +1,105 @@
-# Tech Notes — AI Article Authoring Skills
+# Tech Notes — Article Authoring and Repository Skills
 
-This file is the implementation guide for AI agents creating or modifying articles in this repository.
+This is the operating guide for AI agents working in `stevencr/tech`. Follow it for article creation, edits, architecture changes, deployment fixes and repository maintenance. Keep the site buildable at every meaningful step and make changes on `main` by default.
 
-## Non-negotiable workflow
+## 1. Non-negotiable delivery workflow
 
-**Publish directly to `main` by default. Do not create a feature branch or pull request for routine article work.** Make the article and registry changes on `main`, commit/push them there, and then verify the resulting GitHub Actions build and deployment. If repository protection or permissions prevent a direct push, do not claim success or silently leave work on a branch: explain the blocker clearly and ask for the minimum intervention needed.
+**Routine work must be committed directly to `main`.** Do not create a feature branch or pull request unless a direct update is blocked by repository permissions or branch protection. If blocked, explain the exact blocker and ask for the minimum intervention needed; never imply that a change reached `main` when it did not.
 
-Before committing an article change:
+For every change:
 
-1. Inspect `src/articles/_template.tsx`, the article registry, and at least one existing article.
-2. Search existing article titles, slugs and topics to avoid duplicates.
-3. Follow the existing `ArticleLayout`, metadata and registry architecture.
-4. Run `npm run build` locally or otherwise verify TypeScript compilation before considering the change complete.
-5. Prefer a direct commit/push to `main`; do not use a PR/branch workflow unless a direct update is rejected by repository rules.
-6. Check the GitHub Actions build after pushing to `main`. Do not report deployment success until the workflow is completed successfully.
+1. Inspect the relevant source, package scripts, workflow and existing conventions before editing. For article work, inspect the article registry, shared layout, metadata type, one or more existing articles, and this guide.
+2. Search existing article titles, slugs and topics to avoid duplicates and unnecessary repetition.
+3. Make the smallest coherent change; preserve the site's established design, navigation, accessibility and responsive behaviour.
+4. Run the appropriate checks locally where the environment allows. At minimum, run `npm run build` for source/content changes. Run relevant tests and lint/type checks if scripts exist.
+5. Fix every failure caused by the change before committing. Do not dismiss a build failure as unrelated without evidence.
+6. Commit/push directly to `main` and record the commit SHA.
+7. Check the GitHub Actions run triggered by that exact commit. Inspect the failing job/logs and fix failures rather than stopping at a red run.
+8. Verify the workflow has **completed** with a successful conclusion. Confirm deployment ran successfully if the workflow has a separate deploy step.
+9. Report what was actually verified, with links to the commit and workflow. If a run is queued or in progress, say so. If it failed, say so. Never claim the site is deployed or the build passes based only on a successful commit/API response.
 
-## JSX code-block safety
+A green run for an earlier commit is not proof that the latest commit builds. Match the run's head SHA to the commit being reported.
 
-Article code examples are usually written as JSX:
+## 2. Article architecture: current state and intended direction
 
-```tsx
-<pre><code>...</code></pre>
+The repository currently has React/TypeScript article components under `src/articles/` and a registry in `src/articles/index.ts`. Do not claim the site has migrated to Markdown unless the migration has actually been implemented and verified.
+
+### Intended content-first architecture
+
+Long-form articles should ultimately live as Markdown files with front matter, rather than hand-written React components or JSON documents. Markdown is easier to author, review, diff and maintain for prose, lists, tables and fenced code blocks. JSON is a poor fit for long technical content because it adds escaping and structural noise; a database is unnecessary for a static, build-time editorial site.
+
+Target structure (adapt to the existing framework and routing conventions after inspecting the repository):
+
+```text
+content/
+  articles/
+    cancellation-is-a-protocol.md
+    cgroup-v2-resource-pressure.md
+    mvcc-snapshot-isolation.md
+src/
+  components/
+    ArticleLayout.tsx
+  lib/
+    articles.ts
 ```
 
-The contents are **not automatically treated as a raw string**. JSX syntax is still parsed inside the `<code>` element.
+Each Markdown file should have validated front matter for the fields the site actually needs, typically:
+- `title`
+- `slug`
+- `description` or summary
+- `date` (if the site displays or sorts by date)
+- `tags` (if the site uses tags)
+- any existing required metadata used by cards, routes, SEO or social previews
+
+Do not invent new mandatory fields without checking current UI usage. Keep one canonical source for metadata; avoid duplicating title/description in both front matter and a separate registry.
+
+A build-time loader should:
+- discover Markdown files deterministically;
+- parse front matter and Markdown;
+- validate required fields and field types;
+- ensure each slug is valid and unique;
+- produce the same article data needed by home cards, navigation, routes, metadata and article pages;
+- fail the build with a useful filename/field-specific message on invalid content;
+- avoid runtime database/network dependencies for a static site.
+
+Use the site's existing Markdown/rendering stack if one exists. If adding a dependency, inspect current packages first, choose a maintained minimal option compatible with the build, and document why it is needed. Do not add packages casually.
+
+### Migration must be a cohesive, build-verified task
+
+Before converting the current TSX articles:
+
+1. Inventory every article, metadata field, route, card, navigation item, code example, image and internal link.
+2. Inspect the existing build/export and GitHub Pages base-path behaviour; preserve it.
+3. Implement the shared Markdown renderer/layout and build-time article loader/validation.
+4. Convert every existing article, preserving its full substantive content, examples, headings, links and metadata. Do not silently shorten, rewrite away details or drop articles.
+5. Replace manual component imports with the generated/discovered article collection; update routes, cards, navigation and SEO metadata to use the same collection.
+6. Check code fences, syntax highlighting, heading anchors, internal links, responsive tables, images and social metadata.
+7. Remove obsolete TSX article components and registry code only after their Markdown replacements are verified.
+8. Add validation for missing metadata, invalid/duplicate slugs, missing article files and broken internal article links where practical.
+9. Build and inspect the rendered site before pushing. Verify all article routes and the home page.
+10. Push to `main`, then confirm the workflow for the exact commit succeeds.
+
+Until this migration is complete, follow the current TSX conventions for ordinary article edits rather than creating Markdown files the app cannot yet render. If specifically tasked with the migration, complete the implementation rather than only changing this guide.
+
+## 3. Current TSX authoring rules (until Markdown migration is complete)
+
+- One article is a self-contained React component using the shared `ArticleLayout`.
+- Follow existing metadata types and conventions; use kebab-case filenames and slugs.
+- Register each article exactly once in `src/articles/index.ts`, including its component and metadata, unless the architecture has already been migrated to automatic Markdown discovery.
+- Do not add manual routes, duplicate navigation entries or page-specific CSS without a demonstrated need.
+- Reuse shared components, tokens and styles. Keep spacing and layout consistent with existing articles.
+- Preserve static export and GitHub Pages compatibility.
+- Never leave a registry import pointing at a missing file or an article file that is not discoverable by the app.
+
+## 4. JSX code-example safety (critical)
+
+In TSX article components, code displayed inside `<pre><code>...</code></pre>` is still parsed as JSX text. It is not automatically a raw source string. Malformed examples have caused real CI build failures in this repository.
 
 ### Braces
 
-Never put literal JavaScript/C/C++/Rust/etc. braces directly into JSX text.
+Do not put literal JavaScript/C/C++/Rust/JSON/CSS/shell/configuration braces directly into JSX text. Escape each literal opening brace with `{'{'}` and each closing brace with `{'}'}`.
 
-Bad:
-
-```tsx
-<pre><code>for (;;) {
-  handle();
-}</code></pre>
-```
-
-Safe:
+Example:
 
 ```tsx
 <pre><code>for (;;) {'{'}
@@ -45,89 +107,71 @@ Safe:
 {'}'}</code></pre>
 ```
 
-**Preferred rule for this repository:** escape literal braces in JSX code examples with JSX expressions: `{'{'}` for an opening brace and `{'}'}` for a closing brace. Do not rely on numeric HTML entities such as `&#123;` / `&#125;` in article code blocks: they caused TypeScript parser errors in a real GitHub Actions build here. Apply the JSX expressions consistently to blocks, object literals, functions, JSON, CSS, shell snippets and configuration. After editing examples, run the full build; a visual scan alone is not enough.
+Do **not** use numeric HTML entities `&#123;` and `&#125;` as a workaround for braces in JSX code examples; these have caused parser errors here. Apply the escaping consistently to object literals, function bodies, blocks and configuration examples.
 
-### Angle brackets
+### Angle brackets and other special sequences
 
-Do not put raw HTML-like angle brackets into JSX text when they could be interpreted as markup.
+- Escape comparison/operator angle brackets as `&lt;` and `&gt;` when they appear as JSX text.
+- Escape ampersands as `&amp;` where appropriate.
+- Watch for literal HTML tags, JSX closing sequences such as `</code>`, and text that the JSX parser could interpret as markup.
+- Be especially careful with nested template literals, backticks and `${...}` inside JSX expressions. A nested template literal can terminate the surrounding expression and break TypeScript parsing. Prefer simple concatenation for short examples, or put complex example source in a safely constructed string.
+- Keep code examples readable and technically correct; do not sacrifice correctness just to simplify escaping.
 
-Prefer `&lt;` for `<` and `&gt;` for `>`.
+Before committing TSX article changes, inspect every code block for JSX-sensitive characters and run the full build. A visual scan is not a substitute for compilation.
 
-For example:
+### After Markdown migration
 
-```tsx
-<pre><code>if (i &lt; 16) &#123;
-  inspect(packet[i]);
-&#125;</code></pre>
-```
+Markdown fenced code blocks should be stored as normal source text without JSX brace escaping. Do not carry TSX escaping artefacts such as `{'{' }` into Markdown examples. Use the Markdown renderer's code-fence and syntax-highlighting support, and test that literal code is rendered faithfully.
 
-### Other JSX-sensitive text
+## 5. Editorial quality standard
 
-Watch for:
+Write substantial, senior-level technical deep dives rather than shallow summaries or news rewrites. Aim for roughly a 15–30 minute read when the subject merits it, without padding.
 
-- `&` — use `&amp;` where appropriate.
-- Literal HTML tags in examples.
-- JSX closing sequences such as `</code>` appearing inside an example.
-- Template literals or other examples whose contents could accidentally become JSX syntax.
+Use these elements when they genuinely help:
+- a clear mental model and the problem being solved;
+- how the system works internally;
+- architecture, control flow or data flow;
+- realistic examples, experiments or small reproducible demonstrations;
+- trade-offs and alternatives;
+- operational implications, performance and failure modes;
+- sharp edges, common misconceptions and debugging techniques;
+- connections to wider systems concepts;
+- a concise, useful takeaway.
 
-For large or syntax-heavy examples, consider a JSX expression containing a string/template literal if that makes escaping clearer. Keep the approach consistent with nearby articles, and still run the build to verify the JSX parser accepts it.
+Use accurate terminology, explain assumptions, distinguish guarantees from implementation details, and avoid unsupported claims. Prefer concrete examples over generic prose. Keep headings meaningful and code examples internally consistent. Cite reliable primary documentation for claims that may change or require authoritative backing. Do not duplicate an existing article without a clear new angle.
 
-## Code examples
+## 6. UI, accessibility and static-site requirements
 
-For syntax-heavy examples, mentally parse the surrounding JSX before committing.
+- Preserve the site's established visual identity and typography.
+- Keep pages responsive on mobile and desktop; avoid horizontal overflow and layout shifts.
+- Use semantic headings, links, lists and code elements.
+- Ensure interactive controls are keyboard accessible and have clear labels.
+- Preserve dark/light theme behaviour and existing navigation.
+- Keep route generation, canonical URLs, metadata and social previews correct for GitHub Pages and its base path.
+- Do not introduce server-only or runtime-dependent functionality into a static export without explicitly changing and testing the deployment architecture.
 
-Before committing, scan the new article for:
+## 7. Verification checklist
 
-- `{` and `}`
-- raw `<` and `>` inside `<pre><code>...</code></pre>`
-- accidentally parsed HTML-like syntax
+### Before commit
+- [ ] Existing content, architecture and conventions were inspected.
+- [ ] Duplicate title, slug and topic checks were performed.
+- [ ] All changed files are included and no unintended files were changed.
+- [ ] Metadata is complete and valid.
+- [ ] Every article is discoverable exactly once by the current architecture.
+- [ ] Internal links, code examples and relevant assets are valid.
+- [ ] TSX code blocks escape braces and other JSX-sensitive content correctly (while TSX remains in use).
+- [ ] `npm run build` passes; relevant tests/lint/type checks pass when available.
+- [ ] Existing articles and page behaviour have not been unintentionally lost or broken.
 
-Then run the TypeScript build.
+### After commit
+- [ ] Change is committed to `main`, or the direct-push blocker is explicitly reported.
+- [ ] Commit SHA is known.
+- [ ] GitHub Actions run corresponds to that exact SHA.
+- [ ] Build job completed successfully.
+- [ ] Deployment job completed successfully, if present.
+- [ ] Relevant deployed page/routes were checked when possible.
+- [ ] Final report links to the commit and workflow and accurately states verification status.
 
-## Registry
+## 8. Final reporting
 
-Every new article must be registered exactly once in `src/articles/index.ts`:
-
-- import the article component
-- import its `meta`
-- add one registry entry
-
-The registry drives routes, navigation and home-page cards. Do not create manual routes or navigation entries.
-
-## Architecture rules
-
-- One article = one self-contained React component.
-- Use the shared `ArticleLayout`.
-- Reuse existing shared styles/components.
-- Do not add page-specific CSS unless the existing architecture genuinely requires it.
-- Keep metadata in the article module.
-- Use kebab-case filenames and slugs.
-- Do not create standalone HTML pages.
-
-## Content standard
-
-Articles should be senior-level technical deep dives covering, where relevant:
-
-- mental model
-- internals
-- architecture/data flow
-- practical examples or experiments
-- trade-offs
-- sharp edges and misconceptions
-- wider systems connection
-- concise takeaway
-
-Do not mechanically force every section. Aim for a substantial 15–30 minute read.
-
-## Final verification checklist
-
-Before saying an article is complete:
-
-- [ ] Article component compiles.
-- [ ] JSX code blocks render literal braces using `{'{'}` and `{'}'}` (not numeric brace entities).
-- [ ] JSX code blocks contain no accidentally parsed HTML-like syntax.
-- [ ] Article is registered exactly once.
-- [ ] Metadata is complete.
-- [ ] `npm run build` passes.
-- [ ] Changes are on `main` (or the direct-push blocker is explicitly reported).
-- [ ] GitHub Actions build passes after push.
+Be concise and factual. State what changed, the commit SHA/link, the build result, and the workflow/deployment result. Clearly distinguish local build verification from CI verification and CI verification from successful deployment. If any check could not be run, disclose that limitation. Never say “fixed”, “built”, “pushed” or “deployed” unless the corresponding result has been verified.
