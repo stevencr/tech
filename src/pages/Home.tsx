@@ -4,10 +4,10 @@ import { ArticleCard } from '../components/ArticleCard';
 
 type HomeProps = {
   articles: ArticleMeta[];
-  onDelete: (article: ArticleMeta) => void;
+  onDelete: (article: ArticleMeta) => void;\n  onRestore: () => void;
 };
 
-export function Home({ articles, onDelete }: HomeProps) {
+export function Home({ articles, onDelete, onRestore }: HomeProps) {
   const latestArticle = articles[0];
 
   return (
@@ -34,7 +34,7 @@ export function Home({ articles, onDelete }: HomeProps) {
         <div className="home__empty">
           <h2>Your library is empty</h2>
           <p>Articles hidden with Delete stay in the repository. Refresh the library to restore them.</p>
-          <button className="home__button" type="button" onClick={() => window.location.reload()}>Restore library</button>
+          <button className="home__button" type="button" onClick={onRestore}>Restore library</button>
         </div>
       )}
       <p className="home__note">Each article is a Markdown file in <code>content/articles/</code>.</p>

@@ -5,15 +5,14 @@ import { MarkdownArticle } from '../components/MarkdownArticle';
 
 type ArticlePageProps = {
   article: ArticleMeta;
-  onDelete: (article: ArticleMeta) => void;
+  onDelete: (article: ArticleMeta) => boolean;
 };
 
 export function ArticlePage({ article, onDelete }: ArticlePageProps) {
   const navigate = useNavigate();
   return (
     <ArticleLayout meta={article} onDelete={() => {
-      onDelete(article);
-      navigate('/');
+      if (onDelete(article)) navigate('/');
     }}>
       <MarkdownArticle content={article.content} />
     </ArticleLayout>

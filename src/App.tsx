@@ -54,7 +54,7 @@ export default function App() {
         <SiteNavigation articles={visibleArticles} open={open} onClose={() => setOpen(false)} onDelete={handleDelete} />
         <main className="content">
           <Routes>
-            <Route path="/" element={<Home articles={visibleArticles} onDelete={handleDelete} />} />
+            <Route path="/" element={<Home articles={visibleArticles} onDelete={handleDelete} onRestore={handleRestore} />} />
             {visibleArticles.map((article) => (
               <Route key={article.slug} path={'/articles/' + article.slug}
                 element={<ArticlePage article={article} onDelete={handleDelete} />} />

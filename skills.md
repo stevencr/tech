@@ -26,7 +26,7 @@ Articles are loaded at build time from `content/articles/*.md` by `src/lib/artic
 
 ### Content-first architecture
 
-Long-form articles should ultimately live as Markdown files with front matter, rather than hand-written React components or JSON documents. Markdown is easier to author, review, diff and maintain for prose, lists, tables and fenced code blocks. JSON is a poor fit for long technical content because it adds escaping and structural noise; a database is unnecessary for a static, build-time editorial site.
+Long-form articles live as Markdown files with front matter, rather than hand-written React components or JSON documents. Markdown is easier to author, review, diff and maintain for prose, lists, tables and fenced code blocks. JSON is a poor fit for long technical content because it adds escaping and structural noise; a database is unnecessary for a static, build-time editorial site.
 
 Target structure (adapt to the existing framework and routing conventions after inspecting the repository):
 
@@ -79,7 +79,7 @@ When changing the Markdown architecture:
 9. Build and inspect the rendered site before pushing. Verify all article routes and the home page.
 10. Push to `main`, then confirm the workflow for the exact commit succeeds.
 
-The migration is implemented. New content must be Markdown; the TSX rules below are retained only as a reference for understanding legacy code and should not be used to author new articles.
+The migration is implemented. New content must be Markdown; the TSX rules below are retained only as a reference for understanding legacy code and should not be used to author new articles. Delete controls in the static site hide articles locally in the current browser; permanently deleting a published article means removing its Markdown file in a repository commit.
 
 ## 3. Legacy TSX notes (not for new articles)
 

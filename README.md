@@ -4,56 +4,51 @@ A React + TypeScript developer journal of deep dives into systems, languages, pr
 
 ## Article architecture
 
-Every article is a self-contained React component with a small metadata object.
+Articles are Markdown files with YAML front matter in `content/articles/`. Vite discovers them at build time; `src/lib/articles.ts` validates their metadata and creates the collection used by routes, navigation and cards. There is no manual article registry.
 
-```
+```text
+content/
+  articles/
+    queues-are-time-budgets.md
 src/
-├── articles/
-│   ├── index.ts              # Article registry — add every article here
-│   ├── types.ts              # Shared article metadata type
-│   ├── _template.tsx         # Copy this for a new article
-│   └── my-new-article.tsx    # Article component + metadata
-├── components/
-│   ├── ArticleLayout.tsx      # Shared article chrome
-│   └── LegacyArticle.tsx      # Temporary adapter for older HTML articles
-└── App.tsx                    # Routes and library are driven by the registry
+  components/
+    ArticleLayout.tsx
+    MarkdownArticle.tsx
+  lib/
+    articles.ts
+    articleLibrary.ts
+  pages/
+    ArticlePage.tsx
+    Home.tsx
+  App.tsx
 ```
 
-### Adding a new article
+### Adding an article
 
-Copy `src/articles/_template.tsx` to a meaningful kebab-case filename, then:
+Create a new Markdown file in `content/articles/` with a unique kebab-case filename and front matter:
 
-1. Write the article as normal JSX inside `<ArticleLayout>`.
-2. Set `slug`, `title`, `subtitle`, `category` and `description`.
-3. Rename the exported component.
-4. Add one import and one entry to `src/articles/index.ts`.
+```yaml
+---
+title: "A useful technical title"
+slug: "a-useful-technical-title"
+subtitle: "A concise explanation of the idea and why it matters."
+category: "Systems"
+description: "A short summary for the home-page card."
+date: "2026-10-26"
+readingTime: 10
+tags: [systems, performance]
+---
+```
 
-There are no routes, navigation items or home-page cards to update manually. The registry drives all of them.
+Then write the article body using standard Markdown: headings, paragraphs, lists, tables, links, blockquotes and fenced code blocks are supported. No React component, route, navigation item or registry entry is needed. The build fails with a useful error if required metadata is missing, a slug is invalid or duplicated, the date is malformed, or the article body is empty.
 
-### Prompt for a new article
+### Delete controls
 
-Use a prompt like:
-
-> Create a new Tech Notes article about **[topic]**.
->
-> Make it a genuinely deep technical dive for a senior developer. Explain the internals and mental model, architecture, trade-offs, sharp edges and common misconceptions. Include useful code/examples or experiments where they add value.
->
-> Create `src/articles/[kebab-case-topic].tsx` using `src/articles/_template.tsx`, register it in `src/articles/index.ts`, and keep all article presentation inside `ArticleLayout`/the shared article styles. Do not create standalone HTML, page-specific CSS, routes or navigation code.
+Delete buttons on cards, the sidebar and article pages hide an article in the current browser using local storage. This is intentionally a local library preference: because GitHub Pages is a static site, the browser cannot safely delete Markdown files from the repository. To permanently remove an article from the published site, delete its Markdown file from `content/articles/` in a repository commit. Use **Restore library** to clear the local hidden list.
 
 ### Article writing standard
 
-Prefer this structure where it fits:
-
-1. **Mental model** — what the thing actually is.
-2. **Under the hood** — how it works.
-3. **Architecture** — important components and data/control flow.
-4. **Practical example** — code, experiment or concrete scenario.
-5. **Trade-offs** — why it was designed this way and alternatives.
-6. **Sharp edges** — failure modes and misconceptions.
-7. **Bigger connection** — how the idea relates to other systems.
-8. **Takeaway** — the important idea to remember.
-
-Do not force every heading when it would make the article unnatural.
+Write substantial, senior-level technical deep dives. Explain the mental model and internals, architecture and data flow, practical examples, trade-offs, sharp edges and common misconceptions, operational implications, and a concise takeaway. Do not force every heading or pad the article to a target length. Prefer accurate concrete examples and primary references for claims that may change.
 
 ## Development
 
@@ -63,7 +58,6 @@ npm run dev
 npm run build
 ```
 
-
 ## AI agent guidance
 
-AI agents creating or modifying articles should also follow [`skills.md`](./skills.md), which contains the detailed implementation workflow, JSX code-block safety rules and final verification checklist.
+AI agents creating or modifying articles must follow [`skills.md`](./skills.md). The guide requires direct updates to `main` by default, a successful local build where possible, and verification that GitHub Actions succeeded for the exact pushed commit before claiming deployment success.
