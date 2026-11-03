@@ -384,7 +384,7 @@ The [Kubernetes metrics reference](https://kubernetes.io/docs/reference/instrume
 
 A final misconception is that the scheduler continuously rearranges workloads until the cluster is perfectly packed.
 
-The default scheduler makes decisions one Pod at a time. Its scoring plugins are heuristics for choosing among currently feasible nodes. It does not normally move existing Pods around to make a better global solution, and it does not guarantee that the sequence of locally sensible choices will produce the globally optimal packing.
+For ordinary standalone Pods, the scheduler makes placement decisions one Pod at a time. Newer workload and PodGroup scheduling capabilities can evaluate a group as a unit, but neither path turns the scheduler into a cluster-wide optimiser that continually rearranges existing workloads. Scoring plugins are heuristics for choosing among currently feasible placements, not a guarantee that a sequence of locally sensible decisions will produce the globally optimal packing.
 
 That has practical consequences:
 
