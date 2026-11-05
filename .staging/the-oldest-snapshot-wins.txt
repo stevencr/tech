@@ -100,3 +100,110 @@ This creates a crucial distinction between "logically obsolete" and "safe to rem
 A tuple can be obsolete to every new query and still be needed by one old snapshot.
 
 That is where the vacuum horizon enters.
+d WAL so the change can be recovered and replicated.
+
+The old version cannot simply be overwritten because a transaction with an older snapshot may still need it.
+
+This creates two forms of amplification:
+
+- **Space amplification**: multiple physical tuple versions represent one logical row.
+- **Write amplification**: tuple headers, new heap versions, index entries, WAL and later cleanup all consume work.
+
+The old tuple is often called a dead tuple once it is no longer visible to any transaction. But there is a crucial distinction between "logically obsolete" and "safe to remove".
+
+A tuple can be obsolete to every new query and still be needed by one old snapshot.
+
+That is where the vacuum horizon enters.
+
+## The vacuum horizon: the oldest view still in use
+
+`VACUUM` must be conservative. It cannot remove a tuple version if doing so could change what an active transaction is entitled to see.
+
+PostgreSQL calculates a cleanup horizon from transaction state and other retention requirements. The exact implementation is more involved than a single global minimum, but the practical model is that the oldest still-relevant transaction/snapshot constrains which deleted versions can be removed.
+
+Suppose the timeline looks like this:
+
+```text
+time  ───────────────────────────────────────────────────────────────>
+
+T1: BEGIN; SELECT ...; remain open
+    |----------------------------------------------------------|
+    snapshot S1
+
+T2:       UPDATE row A -> B; COMMIT
+T3:                 UPDATE row B -> C; COMMIT
+T4:                           UPDATE row C -> D; COMMIT
+
+new readers:                                                        see D
+T1's snapshot:       may still need the version visible at S1
+```
+
+New transactions see the latest committed version. T1 continues to operate against its older snapshot. If an earlier tuple version is still visible to T1, vacuum must retain it.
+
+The longer T1 stays open, the more later updates can accumulate behind the retention boundary. One old snapshot can therefore prevent cleanup of a large amount of unrelated churn in the same database horizon.
+
+This is why a transaction that is "doing nothing" can be expensive. It is not consuming CPU. It is preventing the storage engine from forgetting history.
+
+### READ COMMITTED and REPEATABLE READ behave differently
+
+PostgreSQL's default `READ COMMITTED` isolation takes a new snapshot for each statement. Two successive `SELECT` statements in one transaction can therefore see different commits.
+
+`REPEATABLE READ` uses a transaction-level snapshot established by the first non-transaction-control statement. Later statements continue to see that same database view, even as other sessions commit changes.
+
+That stable view is useful for reports and multi-step business logic. It also means the transaction can retain an old visibility horizon for much longer.
+
+A common source of trouble is application code that does something like:
+
+```sql
+BEGIN ISOLATION LEVEL REPEATABLE READ;
+
+SELECT id, status
+FROM orders
+WHERE created_at >= now() - interval '30 days'
+ORDER BY id
+LIMIT 100;
+```
+
+The application sends the first page to a browser, waits for the user to click "next", and leaves the transaction open. The database has no idea that the application considers the request finished. From PostgreSQL's perspective, the transaction still owns a snapshot.
+
+Do not keep a transaction open across human think-time or a multi-request pagination workflow. Use keyset pagination with a new statement/transaction per page when the product semantics allow it, or materialise the report result if a truly stable export is required.
+
+Also, do not treat every open transaction as an equally old snapshot. A transaction's actual `backend_xmin`, cursor behaviour and isolation level matter. Diagnose the horizon rather than guessing from connection age alone.
+
+## VACUUM is not a database shrink button
+
+A standard `VACUUM` does several jobs:
+
+- makes dead tuple space reusable by future inserts and updates;
+- cleans obsolete index entries when safe;
+- updates the visibility map;
+- freezes old transaction metadata as required to prevent transaction ID wraparound.
+
+It usually does **not** return the table's internal free space to the operating system. A relation can remain the same size on disk after vacuum, even though much of the space is now reusable.
+
+That is deliberate. If a table grows to 80 GB during a busy period and later returns to a steady workload that needs 60 GB, keeping the relation file at 80 GB can avoid repeatedly extending and truncating it. PostgreSQL aims for sustainable reuse, not constant compaction to the smallest possible file.
+
+`VACUUM FULL` is different. It rewrites the table into a new compacted copy and can return space to the filesystem, but it requires an `ACCESS EXCLUSIVE` lock and extra disk space while the rewrite is in progress. It is not the normal cure for routine update churn.
+
+The right question is therefore not "why didn't VACUUM shrink my table?" It is:
+
+- Is vacuum able to remove the dead versions?
+- Is the reclaimed space being reused?
+- Is the relation genuinely larger than its steady-state requirement?
+- Is an old snapshot or replication horizon preventing cleanup?
+
+See PostgreSQL's [routine vacuuming documentation](https://www.postgresql.org/docs/current/routine-vacuuming.html) for the distinction between reuse, visibility-map maintenance and wraparound protection.
+
+### Autovacuum is threshold-driven, not clairvoyant
+
+Autovacuum decides when to process a table using configured thresholds and activity statistics. A simplified update/delete trigger is:
+
+```text
+vacuum threshold
+  = autovacuum_vacuum_threshold
+  + autovacuum_vacuum_scale_factor * estimated table rows
+```
+
+The defaults are not necessarily right for every table. A 100-million-row table with a 20% scale factor can accumulate a very large number of dead tuples before the threshold is crossed. A tiny, frequently updated table may need different settings too.
+
+Ta
