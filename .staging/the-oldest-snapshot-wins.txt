@@ -315,4 +315,203 @@ This is a particularly surprising operational connection: a read-only analytics 
 
 A logical replication slot must retain enough information for its consumer to resume decoding changes. Depending on the slot state, `xmin` and `catalog_xmin` can hold back vacuum cleanup of user tuples or catalog tuples.
 
-An inactive slot is not necessarily harmless. If a consumer has been down for weeks, the slot may still retain a large amount of WAL 
+An inactive slot is not necessarily harmless. If a consumer has been down for weeks, the slot may still retain a large amount of WAL and an old cleanup horizon.
+
+Inspect slots:
+
+```sql
+SELECT
+  slot_name,
+  slot_type,
+  active,
+  xmin,
+  age(xmin) AS xmin_age,
+  catalog_xmin,
+  age(catalog_xmin) AS catalog_xmin_age,
+  restart_lsn,
+  confirmed_flush_lsn
+FROM pg_replication_slots
+ORDER BY GREATEST(
+  COALESCE(age(xmin), 0),
+  COALESCE(age(catalog_xmin), 0)
+) DESC;
+```
+
+Before dropping a slot, confirm that its consumer is genuinely retired. Removing a slot can make required changes unavailable to a downstream consumer; the replica or consumer may need to be rebuilt or resynchronised.
+
+Replication slots also retain WAL through `restart_lsn`. That is a separate disk-growth mechanism from heap tuple retention, even though both can be caused by a lagging consumer.
+
+## Transaction ID wraparound: why freezing is mandatory
+
+PostgreSQL transaction IDs are finite-width values. The traditional 32-bit XID space wraps, so numeric comparison cannot be treated as an ever-increasing integer forever.
+
+PostgreSQL handles this by freezing old tuple transaction metadata once it is safe to regard the inserting transaction as ancient and committed for visibility purposes. A frozen tuple no longer needs its original XID interpreted in the ordinary way.
+
+Vacuum therefore has a safety job beyond reclaiming dead tuples: it must advance the database's freeze horizon before transaction ID wraparound can make old rows appear to be from the future.
+
+This is why autovacuum cannot simply be disabled as a performance tweak. PostgreSQL will still launch anti-wraparound vacuum work when needed, even if ordinary autovacuum settings are disabled.
+
+Monitor the age of the oldest unfrozen transaction IDs:
+
+```sql
+SELECT
+  datname,
+  age(datfrozenxid) AS xid_age
+FROM pg_database
+ORDER BY xid_age DESC;
+```
+
+And at table level:
+
+```sql
+SELECT
+  n.nspname AS schema_name,
+  c.relname AS table_name,
+  age(c.relfrozenxid) AS xid_age
+FROM pg_class AS c
+JOIN pg_namespace AS n ON n.oid = c.relnamespace
+WHERE c.relkind IN ('r', 'm')
+ORDER BY xid_age DESC
+LIMIT 20;
+```
+
+The age is measured in transactions, not days. A quiet database can have a low XID consumption rate; a busy database can age rapidly.
+
+A long-running transaction or replication slot can make it impossible for vacuum to advance the horizon far enough. If wraparound protection is threatened, PostgreSQL emits warnings and eventually refuses new operations that need transaction IDs rather than risk catastrophic visibility errors.
+
+The [routine vacuuming chapter](https://www.postgresql.org/docs/current/routine-vacuuming.html) explains freezing and wraparound protection. Treat those warnings as an availability incident, not as routine maintenance noise.
+
+## A reproducible experiment: pin the horizon
+
+The following lab makes the retention effect visible. Use a disposable PostgreSQL database, not production.
+
+Create a table with enough rows to make repeated updates meaningful:
+
+```sql
+CREATE TABLE mvcc_lab (
+  id bigint PRIMARY KEY,
+  payload text NOT NULL
+) WITH (fillfactor = 80);
+
+INSERT INTO mvcc_lab
+SELECT
+  g,
+  md5(g::text)
+FROM generate_series(1, 100000) AS g;
+
+ANALYZE mvcc_lab;
+```
+
+Open **Session A** and establish a repeatable-read snapshot:
+
+```sql
+BEGIN ISOLATION LEVEL REPEATABLE READ;
+
+SELECT count(*) FROM mvcc_lab;
+```
+
+Leave the transaction open. It has now established a stable snapshot.
+
+In **Session B**, update the rows several times:
+
+```sql
+UPDATE mvcc_lab
+SET payload = md5(payload || clock_timestamp()::text);
+
+UPDATE mvcc_lab
+SET payload = md5(payload || clock_timestamp()::text);
+
+UPDATE mvcc_lab
+SET payload = md5(payload || clock_timestamp()::text);
+```
+
+Then inspect table statistics:
+
+```sql
+SELECT
+  relname,
+  n_live_tup,
+  n_dead_tup,
+  n_tup_upd,
+  n_tup_hot_upd
+FROM pg_stat_user_tables
+WHERE relname = 'mvcc_lab';
+```
+
+Run a manual vacuum in Session B:
+
+```sql
+VACUUM (VERBOSE, ANALYZE) mvcc_lab;
+```
+
+The verbose output should help you see whether dead tuples are removable. Exact counts vary with page layout, transaction timing, autovacuum activity and PostgreSQL version, but the old snapshot should prevent cleanup of versions that it might still need.
+
+Now return to Session A:
+
+```sql
+COMMIT;
+```
+
+Run vacuum again in Session B:
+
+```sql
+VACUUM (VERBOSE, ANALYZE) mvcc_lab;
+```
+
+With the old snapshot released, more obsolete versions can become removable.
+
+The experiment demonstrates an important distinction: the updates committed successfully while Session A was open. MVCC did not block them. The cost appeared later as retained history and delayed cleanup.
+
+You can extend the experiment by comparing `READ COMMITTED` with `REPEATABLE READ`, checking `pg_stat_activity.backend_xmin`, and observing `EXPLAIN (ANALYZE, BUFFERS)` before and after cleanup.
+
+## Production diagnostics: find the retention owner
+
+Start with table churn and vacuum activity:
+
+```sql
+SELECT
+  schemaname,
+  relname,
+  n_live_tup,
+  n_dead_tup,
+  n_tup_upd,
+  n_tup_hot_upd,
+  last_vacuum,
+  last_autovacuum,
+  autovacuum_count
+FROM pg_stat_user_tables
+ORDER BY n_dead_tup DESC
+LIMIT 30;
+```
+
+These are statistics estimates, not an exact physical inventory. Correlate them with relation size, update rate and vacuum logs.
+
+Next, find sessions with old snapshots:
+
+```sql
+SELECT
+  pid,
+  usename,
+  application_name,
+  state,
+  xact_start,
+  now() - xact_start AS transaction_age,
+  backend_xmin,
+  age(backend_xmin) AS xmin_age,
+  wait_event_type,
+  wait_event,
+  left(query, 160) AS query
+FROM pg_stat_activity
+WHERE backend_xmin IS NOT NULL
+ORDER BY age(backend_xmin) DESC;
+```
+
+Look especially for:
+
+- `idle in transaction`;
+- reporting sessions with very old `xact_start`;
+- application names that identify a batch/export worker;
+- sessions with a large `age(backend_xmin)`;
+- a transaction that has finished its useful work but has not committed or rolled back.
+
+`backend_xmin` is often more useful for this investigation than transaction age alone because it exposes the backend's snapshot horizon. A transaction can be old without currently
