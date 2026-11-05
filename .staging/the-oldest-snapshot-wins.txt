@@ -1,0 +1,102 @@
+---
+title: "The Oldest Snapshot Wins"
+slug: "the-oldest-snapshot-wins"
+subtitle: "How one quiet transaction can pin millions of row versions, stall vacuum, and turn ordinary updates into a storage and latency problem."
+category: "Database Internals"
+description: "A PostgreSQL deep dive into MVCC tuple versions, snapshot horizons, vacuum debt, HOT updates, visibility maps, replication slots and transaction ID freezing—with a reproducible lab and production diagnostics."
+date: "2026-11-06"
+readingTime: 24
+tags: [postgresql, mvcc, vacuum, transactions, performance]
+---
+
+A database can spend hours accepting writes, returning successful commits and serving reads while its physical footprint quietly expands. Autovacuum is running. CPU is available. Disk I/O is not obviously saturated. Yet dead tuples accumulate, indexes become less efficient, and eventually an ordinary query starts touching far more pages than the logical row count suggests.
+
+Sometimes the cause is not a bad query or a broken vacuum setting. It is a transaction that began hours ago, read a consistent snapshot, and then did almost nothing.
+
+That transaction may be read-only. It may be sitting in a connection pool as `idle in transaction`. It may belong to a report that fetched its first page and then waited for a user. It may be a replica or a logical decoding consumer holding an old retention horizon.
+
+The key idea is that **MVCC creates versions, but snapshots determine when those versions can be forgotten**.
+
+PostgreSQL's implementation makes this especially visible. An `UPDATE` does not normally overwrite a row in place. It creates a new tuple version and marks the old one as superseded. Readers use snapshots to decide which version belongs to their view of the database. `VACUUM` can remove an obsolete version only when no transaction can still need to see it.
+
+A long-lived snapshot therefore behaves like a retention lease over historical data. The database cannot reclaim versions newer than the oldest point still required by any relevant snapshot, slot or standby.
+
+This is the hidden cost of consistency.
+
+## MVCC is a version-selection system
+
+Multi-Version Concurrency Control is often summarised as "readers don't block writers". That is useful, but it hides the storage mechanism.
+
+PostgreSQL keeps multiple physical row versions in the table's heap. A version has transaction metadata in its tuple header, including:
+
+- `xmin`: the transaction ID that inserted this version;
+- `xmax`: the transaction ID that deleted or superseded it, or transaction/lock metadata in cases where the field is used for row locking;
+- `ctid`: the physical tuple identifier, which can link an old version to a newer one;
+- infomask bits that cache facts about transaction status and tuple state.
+
+A simplified row history might look like this:
+
+```text
+logical row id = 42
+
+heap tuple A: value = "draft"
+              xmin = 100
+              xmax = 240
+              ctid -> tuple B
+
+heap tuple B: value = "published"
+              xmin = 240
+              xmax = 0
+              ctid -> tuple B
+```
+
+Transaction 240 updated the row. It marked tuple A as no longer current and inserted tuple B. Both versions can coexist physically.
+
+That does not mean every query sees both. Visibility is evaluated against the query's snapshot.
+
+A snapshot is not a copy of the table. It is transaction metadata describing which transactions were in progress when the snapshot was taken. Conceptually, PostgreSQL snapshots contain a lower transaction-ID boundary, an upper boundary, and the set of transaction IDs that were still running inside that range. The actual implementation has additional details, including the current transaction and command ID.
+
+For a normal tuple, visibility depends on whether its inserting transaction is considered committed and visible to that snapshot, and whether its deleting/updating transaction is considered committed and visible to that snapshot. A transaction that was still in progress when the snapshot was taken must not suddenly become visible merely because it commits later.
+
+That last sentence is the entire reason old versions matter.
+
+### A snapshot is a frozen answer to "who had committed?"
+
+Imagine transaction 240 is updating tuple A to tuple B.
+
+- A reader whose snapshot predates transaction 240 treats 240 as in progress. It sees A.
+- A reader whose snapshot is taken after 240 commits sees B.
+- If transaction 240 aborts, B is not a committed version and A remains the valid row.
+- The writer sees its own changes according to PostgreSQL's command-visibility rules.
+
+The visibility test is more subtle than comparing `xmin` numerically with the current transaction ID. Transaction IDs wrap, snapshots contain an in-progress set, subtransactions complicate the picture, and tuple header bits can cache commit status. The transaction status machinery and snapshot membership work together.
+
+For implementation-minded readers, the important mental model is: **a tuple's creator and deleter are interpreted relative to a snapshot, not relative to wall-clock time**.
+
+PostgreSQL documents the multiversion model in its [MVCC introduction](https://www.postgresql.org/docs/current/mvcc-intro.html), and the details of transaction visibility and isolation in [transaction isolation](https://www.postgresql.org/docs/current/transaction-iso.html).
+
+## Why UPDATE creates storage debt
+
+Consider a table with one million rows. An application updates a status column for 100,000 of them.
+
+At the logical level, the operation sounds like 100,000 values changing. At the storage level, PostgreSQL generally needs to:
+
+1. Find the current tuple version.
+2. Check that concurrent updates have not invalidated the operation.
+3. Mark the old tuple with the updating transaction's `xmax`.
+4. Insert a new tuple version carrying the new values and the updating transaction's `xmin`.
+5. Maintain the relevant index entries, unless an optimisation such as HOT applies.
+6. Generate the required WAL so the change can be recovered and replicated.
+
+This creates two forms of amplification:
+
+- **Space amplification**: multiple physical tuple versions represent one logical row.
+- **Write amplification**: tuple headers, new heap versions, index entries, WAL and later cleanup all consume work.
+
+The old version cannot simply be overwritten because a transaction with an older snapshot may still need it.
+
+This creates a crucial distinction between "logically obsolete" and "safe to remove".
+
+A tuple can be obsolete to every new query and still be needed by one old snapshot.
+
+That is where the vacuum horizon enters.
