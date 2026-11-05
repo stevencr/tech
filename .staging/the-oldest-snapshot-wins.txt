@@ -514,4 +514,116 @@ Look especially for:
 - sessions with a large `age(backend_xmin)`;
 - a transaction that has finished its useful work but has not committed or rolled back.
 
-`backend_xmin` is often more useful for this investigation than transaction age alone because it exposes the backend's snapshot horizon. A transaction can be old without currently
+`backend_xmin` is often more useful for this investigation than transaction age alone because it exposes the backend's snapshot horizon. A transaction can be old without currently holding the oldest relevant snapshot, and a session can retain a snapshot while doing no visible work.
+
+Check prepared transactions too:
+
+```sql
+SELECT
+  transaction,
+  gid,
+  prepared,
+  owner,
+  database
+FROM pg_prepared_xacts
+ORDER BY prepared;
+```
+
+An abandoned prepared transaction is not an ordinary idle connection. It can retain transaction state and locks until explicitly committed or rolled back.
+
+Inspect replication slots and standby feedback separately. Do not assume every old horizon belongs to an application backend.
+
+Finally, see what vacuum is doing now:
+
+```sql
+SELECT
+  pid,
+  relid::regclass AS relation,
+  phase,
+  heap_blks_scanned,
+  heap_blks_total,
+  index_vacuum_count
+FROM pg_stat_progress_vacuum;
+```
+
+The progress view helps distinguish a vacuum that is actively processing a large relation from one that is not being launched or is repeatedly unable to make the expected cleanup progress.
+
+### A practical incident sequence
+
+When dead tuples and relation size are rising:
+
+1. Identify the tables with the highest update/delete churn.
+2. Compare dead-tuple estimates with relation size and the rate of change.
+3. Inspect `pg_stat_activity.backend_xmin` for old snapshots.
+4. Inspect prepared transactions and replication slots.
+5. Check replica feedback and logical decoding consumer lag.
+6. Inspect autovacuum logs, worker availability and per-table thresholds.
+7. Confirm whether vacuum can remove tuples, not merely whether it ran.
+8. Fix the retention owner before repeatedly increasing vacuum frequency or cost limits.
+
+Do not terminate a backend just because its `xmin` is old. First identify the owning application, transaction semantics and user impact. A report may be intentionally consistent; a prepared transaction may be part of a distributed commit protocol; a replication slot may be serving a critical downstream system.
+
+The right fix is to shorten or release the retention requirement safely, not to delete evidence of it.
+
+## Design implications for application developers
+
+This is not just a DBA concern. Application transaction boundaries directly influence the storage engine's ability to clean up.
+
+### Keep transactions close to the work they protect
+
+Do not open a transaction at the start of an HTTP request and leave it open while calling unrelated services, waiting for user input, or streaming a large response.
+
+Keep the atomic database work together, commit promptly, and perform slow external work outside the transaction when correctness permits. Where a workflow genuinely spans multiple services, use an explicit saga or durable state machine rather than holding a database snapshot open across network calls.
+
+### Make pagination semantics explicit
+
+Offset pagination across many requests does not require one transaction to remain open. Keyset pagination can provide stable ordering with a cursor based on indexed keys. If the product requires a point-in-time export, materialise the selected identifiers or result set, or use a deliberate snapshot/export strategy with a bounded lifetime.
+
+### Treat retries as transaction retries
+
+At `REPEATABLE READ` and `SERIALIZABLE`, a concurrent update can cause a serialization failure. The application must retry the **whole transaction**, not just the final SQL statement, because the logic was evaluated against a snapshot that is no longer valid for the attempted write.
+
+Retries need bounded attempts, backoff and idempotent external effects. A transaction that charges a card or publishes a message must not repeat those side effects merely because its database commit was retried.
+
+### Index design is write-path design
+
+Every index can increase the cost of writes and reduce HOT eligibility when indexed columns change. Add indexes based on measured read benefit, but include update frequency and index maintenance in the cost model.
+
+For frequently updated state tables, ask whether every indexed column really needs to be indexed, whether a partial index is sufficient, and whether fillfactor can preserve HOT opportunities.
+
+## Misconceptions worth retiring
+
+| Misconception | Better model |
+| --- | --- |
+| "MVCC means old rows are overwritten later." | PostgreSQL creates tuple versions; vacuum later reclaims versions no snapshot needs. |
+| "A read-only transaction cannot hurt write performance." | A long-lived snapshot can retain dead tuple versions and delay cleanup. |
+| "Autovacuum ran, so bloat should be gone." | Vacuum may be unable to remove versions behind an old horizon, and standard vacuum usually makes space reusable rather than shrinking the file. |
+| "VACUUM FULL is just a stronger vacuum." | It rewrites the relation, needs an exclusive lock and extra disk space. |
+| "Every open transaction pins the same amount of history." | The actual snapshot horizon matters; inspect `backend_xmin` and other retention sources. |
+| "A replica is read-only, so it cannot affect the primary." | Standby feedback can make the primary retain row versions needed by replica queries. |
+| "An inactive logical slot is harmless." | Its retained `xmin`, `catalog_xmin` and WAL position can still hold back cleanup or WAL recycling. |
+| "An index only affects reads." | Indexes add write work and can prevent HOT updates when indexed columns change. |
+
+## The takeaway
+
+MVCC gives each transaction a coherent view without forcing ordinary readers and writers to take conflicting row locks. The price is historical versions.
+
+Those versions are not disposable merely because a newer row exists. They become reclaimable only when the oldest relevant snapshot and replication horizon have moved beyond them. A forgotten transaction, a slow replica or an abandoned logical slot can therefore turn normal update traffic into persistent storage debt.
+
+When a PostgreSQL table grows unexpectedly, investigate the oldest required view before blindly tuning autovacuum. Find who is retaining history, understand why that retention exists, and shorten or remove it safely.
+
+The deepest operational lesson is simple:
+
+> A transaction is not finished when the application stops caring about it. It is finished when the database is allowed to release the state it was protecting.
+
+## Further reading
+
+- [PostgreSQL MVCC introduction](https://www.postgresql.org/docs/current/mvcc-intro.html) — the multiversion concurrency model.
+- [Transaction isolation](https://www.postgresql.org/docs/current/transaction-iso.html) — statement snapshots, repeatable read, snapshot isolation and serializable behaviour.
+- [Routine vacuuming](https://www.postgresql.org/docs/current/routine-vacuuming.html) — dead tuple cleanup, visibility maps, autovacuum and transaction ID wraparound.
+- [Heap-Only Tuples (HOT)](https://www.postgresql.org/docs/current/storage-hot.html) — when updates can avoid new index entries.
+- [Database page layout](https://www.postgresql.org/docs/current/storage-page-layout.html) — heap pages, item identifiers and tuple placement.
+- [Cumulative statistics system](https://www.postgresql.org/docs/current/monitoring-stats.html) — `pg_stat_activity`, table statistics and vacuum progress.
+- [Replication slots](https://www.postgresql.org/docs/current/view-pg-replication-slots.html) — `xmin`, `catalog_xmin` and WAL retention.
+- [Transaction ID information functions](https://www.postgresql.org/docs/current/functions-info.html) — `age()` and snapshot-related functions.
+- [Serializable Snapshot Isolation in PostgreSQL](https://www.vldb.org/pvldb/vol5/p1850_danrkports_vldb2012.pdf) — Ports and Grittner's paper on PostgreSQL's SSI implementation.
