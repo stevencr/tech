@@ -206,4 +206,113 @@ vacuum threshold
 
 The defaults are not necessarily right for every table. A 100-million-row table with a 20% scale factor can accumulate a very large number of dead tuples before the threshold is crossed. A tiny, frequently updated table may need different settings too.
 
-Ta
+Table-level storage parameters let you tune hot relations independently:
+
+```sql
+ALTER TABLE event_state SET (
+  autovacuum_vacuum_scale_factor = 0.02,
+  autovacuum_vacuum_threshold = 500
+);
+```
+
+Those values are illustrative, not a universal recommendation. Lower thresholds increase vacuum frequency and I/O. Higher thresholds tolerate more dead space before cleanup. A sensible setting depends on update rate, table size, index count, storage latency and the time vacuum needs to complete.
+
+Most importantly, lowering thresholds does not solve a pinned horizon. Autovacuum can wake up more often and still be unable to remove versions that an old snapshot may need.
+
+## The visibility map: a tiny structure with a big query-planning consequence
+
+Every heap relation has a visibility map (VM). It tracks properties at the heap-page level, including whether all tuples on a page are visible to all transactions and whether they are frozen.
+
+The map is tiny compared with the heap. PostgreSQL can consult it before visiting a heap page during an index-only scan.
+
+Why does that matter?
+
+A normal index entry identifies a heap tuple, but the index does not generally contain enough MVCC visibility information to prove that the tuple is visible to the current snapshot. The executor normally has to visit the heap to check.
+
+An index-only scan can avoid that heap visit when the visibility map says the entire page is all-visible. If the bit is not set, PostgreSQL may still need to fetch the heap tuple to check visibility.
+
+This gives vacuum a second performance role: it does not just create reusable space; it restores the conditions under which index-only scans can avoid heap I/O.
+
+A frequently updated table may have poor all-visible coverage because every data-modifying operation clears the relevant visibility-map state. A long-running snapshot can also delay the point at which vacuum can certify pages as all-visible again.
+
+This is one reason a table can have a seemingly perfect covering index and still perform many heap fetches.
+
+Inspect plans:
+
+```sql
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT customer_id, created_at
+FROM orders
+WHERE customer_id = 42
+ORDER BY created_at DESC
+LIMIT 50;
+```
+
+Look for `Index Only Scan` and the `Heap Fetches` count. A high heap-fetch count means the executor had to visit the heap for visibility checks. It does not automatically prove a vacuum problem, but it is a useful clue when correlated with update churn and visibility-map coverage.
+
+## HOT updates: avoiding index write amplification
+
+PostgreSQL has an important optimisation called Heap-Only Tuples (HOT).
+
+An update can be HOT-eligible when:
+
+1. It does not modify columns referenced by ordinary indexes (with special handling for summarising indexes such as BRIN).
+2. There is enough free space on the same heap page for the new tuple version.
+
+When those conditions hold, PostgreSQL can avoid creating new entries in every affected index. Existing index entries still point to the original tuple's line pointer, which can redirect to the relevant version chain on the heap page.
+
+That is a substantial reduction in write amplification for tables with many indexes.
+
+Consider a table with indexes on `account_id`, `email` and `created_at`, plus an unindexed `last_seen_at` column. Updating only `last_seen_at` can be HOT-eligible if the new tuple fits on the same page.
+
+If you add an index on `last_seen_at` to make a dashboard filter faster, that update path may stop being HOT. Every update to that column can now require index maintenance. The query may become faster while the write workload becomes more expensive.
+
+This is a real design trade-off, not an argument against indexing. Indexes are not free metadata; they influence the physical cost of every update.
+
+A lower table `fillfactor` leaves free space on heap pages and can improve the chance that updated versions fit on the same page:
+
+```sql
+ALTER TABLE account_state SET (fillfactor = 80);
+```
+
+The setting affects future page packing; changing it does not automatically rewrite existing pages. It also trades density for update headroom, so measure the result.
+
+Monitor HOT behaviour:
+
+```sql
+SELECT
+  relname,
+  n_tup_upd,
+  n_tup_hot_upd,
+  round(
+    100.0 * n_tup_hot_upd / NULLIF(n_tup_upd, 0),
+    1
+  ) AS hot_update_percent,
+  n_dead_tup,
+  last_autovacuum
+FROM pg_stat_user_tables
+ORDER BY n_tup_upd DESC
+LIMIT 20;
+```
+
+A falling HOT percentage can be a useful signal after a schema change or index addition. It is not a standalone health score: a table that rarely updates may not need HOT optimisation, and a table can have a low HOT rate for perfectly valid reasons.
+
+The [HOT documentation](https://www.postgresql.org/docs/current/storage-hot.html) explains the eligibility conditions and how line pointers allow index entries to keep referring to the original tuple location.
+
+## The other snapshot holders: replicas and logical decoding
+
+An old transaction is not the only thing that can retain row versions.
+
+### Physical replicas and hot standby feedback
+
+A hot standby can cancel queries when replaying WAL would conflict with the query's snapshot. Enabling `hot_standby_feedback` allows the standby to report its oldest required transaction horizon to the primary, reducing those query cancellations.
+
+The trade-off is that the primary may have to retain dead row versions for the standby. A long-running report on a replica can therefore contribute to table bloat on the primary.
+
+This is a particularly surprising operational connection: a read-only analytics query on a replica can affect storage cleanup on the writer.
+
+### Logical replication slots
+
+A logical replication slot must retain enough information for its consumer to resume decoding changes. Depending on the slot state, `xmin` and `catalog_xmin` can hold back vacuum cleanup of user tuples or catalog tuples.
+
+An inactive slot is not necessarily harmless. If a consumer has been down for weeks, the slot may still retain a large amount of WAL 
