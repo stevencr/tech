@@ -1,0 +1,615 @@
+---
+title: "The Oldest Snapshot Wins"
+slug: "the-oldest-snapshot-wins"
+subtitle: "How one quiet transaction can pin millions of row versions, stall vacuum, and turn ordinary updates into a storage and latency problem."
+category: "Database Internals"
+description: "A PostgreSQL deep dive into MVCC tuple versions, snapshot horizons, vacuum debt, HOT updates, visibility maps, replication slots and transaction ID freezing—with a reproducible lab and production diagnostics."
+date: "2026-11-06"
+readingTime: 24
+tags: [postgresql, mvcc, vacuum, transactions, performance]
+---
+
+A database can spend hours accepting writes, returning successful commits and serving reads while its physical footprint quietly expands. Autovacuum is running. CPU is available. Disk I/O is not obviously saturated. Yet dead tuples accumulate, indexes become less efficient, and eventually an ordinary query starts touching far more pages than the logical row count suggests.
+
+Sometimes the cause is not a bad query or a broken vacuum setting. It is a transaction that began hours ago, read a consistent snapshot, and then did almost nothing.
+
+That transaction may be read-only. It may be sitting in a connection pool as `idle in transaction`. It may belong to a report that fetched its first page and then waited for a user. It may be a replica or a logical decoding consumer holding an old retention horizon.
+
+The key idea is that **MVCC creates versions, but snapshots determine when those versions can be forgotten**.
+
+PostgreSQL's implementation makes this especially visible. An `UPDATE` does not normally overwrite a row in place. It creates a new tuple version and marks the old one as superseded. Readers use snapshots to decide which version belongs to their view of the database. `VACUUM` can remove an obsolete version only when no transaction can still need to see it.
+
+A long-lived snapshot therefore behaves like a retention lease over historical data. The database cannot reclaim versions newer than the oldest point still required by any relevant snapshot, slot or standby.
+
+This is the hidden cost of consistency.
+
+## MVCC is a version-selection system
+
+Multi-Version Concurrency Control is often summarised as "readers don't block writers". That is useful, but it hides the storage mechanism.
+
+PostgreSQL keeps multiple physical row versions in the table's heap. A version has transaction metadata in its tuple header, including:
+
+- `xmin`: the transaction ID that inserted this version;
+- `xmax`: the transaction ID that deleted or superseded it, or transaction/lock metadata in cases where the field is used for row locking;
+- `ctid`: the physical tuple identifier, which can link an old version to a newer one;
+- infomask bits that cache facts about transaction status and tuple state.
+
+A simplified row history might look like this:
+
+```text
+logical row id = 42
+
+heap tuple A: value = "draft"
+              xmin = 100
+              xmax = 240
+              ctid -> tuple B
+
+heap tuple B: value = "published"
+              xmin = 240
+              xmax = 0
+              ctid -> tuple B
+```
+
+Transaction 240 updated the row. It marked tuple A as no longer current and inserted tuple B. Both versions can coexist physically.
+
+That does not mean every query sees both. Visibility is evaluated against the query's snapshot.
+
+A snapshot is not a copy of the table. It is transaction metadata describing which transactions were in progress when the snapshot was taken. Conceptually, PostgreSQL snapshots contain a lower transaction-ID boundary, an upper boundary, and the set of transaction IDs that were still running inside that range. The actual implementation has additional details, including the current transaction and command ID.
+
+For a normal tuple, visibility depends on whether its inserting transaction is considered committed and visible to that snapshot, and whether its deleting/updating transaction is considered committed and visible to that snapshot. A transaction that was still in progress when the snapshot was taken must not suddenly become visible merely because it commits later.
+
+That last sentence is the entire reason old versions matter.
+
+### A snapshot is a frozen answer to "who had committed?"
+
+Imagine transaction 240 is updating tuple A to tuple B.
+
+- A reader whose snapshot predates transaction 240 treats 240 as in progress. It sees A.
+- A reader whose snapshot is taken after 240 commits sees B.
+- If transaction 240 aborts, B is not a committed version and A remains the valid row.
+- The writer sees its own changes according to PostgreSQL's command-visibility rules.
+
+The visibility test is more subtle than comparing `xmin` numerically with the current transaction ID. Transaction IDs wrap, snapshots contain an in-progress set, subtransactions complicate the picture, and tuple header bits can cache commit status. The transaction status machinery and snapshot membership work together.
+
+For implementation-minded readers, the important mental model is: **a tuple's creator and deleter are interpreted relative to a snapshot, not relative to wall-clock time**.
+
+PostgreSQL documents the multiversion model in its [MVCC introduction](https://www.postgresql.org/docs/current/mvcc-intro.html), and the details of transaction visibility and isolation in [transaction isolation](https://www.postgresql.org/docs/current/transaction-iso.html).
+
+## Why UPDATE creates storage debt
+
+Consider a table with one million rows. An application updates a status column for 100,000 of them.
+
+At the logical level, the operation sounds like 100,000 values changing. At the storage level, PostgreSQL generally needs to:
+
+1. Find the current tuple version.
+2. Check that concurrent updates have not invalidated the operation.
+3. Mark the old tuple with the updating transaction's `xmax`.
+4. Insert a new tuple version carrying the new values and the updating transaction's `xmin`.
+5. Maintain the relevant index entries, unless an optimisation such as HOT applies.
+6. Generate the required WAL so the change can be recovered and replicated.
+
+The old version cannot simply be overwritten because a transaction with an older snapshot may still need it.
+
+This creates two forms of amplification:
+
+- **Space amplification**: multiple physical tuple versions represent one logical row.
+- **Write amplification**: tuple headers, new heap versions, index entries, WAL and later cleanup all consume work.
+
+The old tuple is often called a dead tuple once it is no longer visible to any transaction. But there is a crucial distinction between "logically obsolete" and "safe to remove".
+
+A tuple can be obsolete to every new query and still be needed by one old snapshot.
+
+That is where the vacuum horizon enters.
+
+## The vacuum horizon: the oldest view still in use
+
+`VACUUM` must be conservative. It cannot remove a tuple version if doing so could change what an active transaction is entitled to see.
+
+PostgreSQL calculates a cleanup horizon from transaction state and other retention requirements. The exact implementation is more involved than a single global minimum, but the practical model is that the oldest still-relevant transaction/snapshot constrains which deleted versions can be removed.
+
+Suppose the timeline looks like this:
+
+```text
+time  ───────────────────────────────────────────────────────────────>
+
+T1: BEGIN; SELECT ...; remain open
+    |----------------------------------------------------------|
+    snapshot S1
+
+T2:       UPDATE row A -> B; COMMIT
+T3:                 UPDATE row B -> C; COMMIT
+T4:                           UPDATE row C -> D; COMMIT
+
+new readers:                                                        see D
+T1's snapshot:       may still need the version visible at S1
+```
+
+New transactions see the latest committed version. T1 continues to operate against its older snapshot. If an earlier tuple version is still visible to T1, vacuum must retain it.
+
+The longer T1 stays open, the more later updates can accumulate behind the retention boundary. One old snapshot can therefore prevent cleanup of a large amount of unrelated churn in the same database horizon.
+
+This is why a transaction that is "doing nothing" can be expensive. It is not consuming CPU. It is preventing the storage engine from forgetting history.
+
+### READ COMMITTED and REPEATABLE READ behave differently
+
+PostgreSQL's default `READ COMMITTED` isolation takes a new snapshot for each statement. Two successive `SELECT` statements in one transaction can therefore see different commits.
+
+`REPEATABLE READ` uses a transaction-level snapshot established by the first non-transaction-control statement. Later statements continue to see that same database view, even as other sessions commit changes.
+
+That stable view is useful for reports and multi-step business logic. It also means the transaction can retain an old visibility horizon for much longer.
+
+A common source of trouble is application code that does something like:
+
+```sql
+BEGIN ISOLATION LEVEL REPEATABLE READ;
+
+SELECT id, status
+FROM orders
+WHERE created_at >= now() - interval '30 days'
+ORDER BY id
+LIMIT 100;
+```
+
+The application sends the first page to a browser, waits for the user to click "next", and leaves the transaction open. The database has no idea that the application considers the request finished. From PostgreSQL's perspective, the transaction still owns a snapshot.
+
+Do not keep a transaction open across human think-time or a multi-request pagination workflow. Use keyset pagination with a new statement/transaction per page when the product semantics allow it, or materialise the report result if a truly stable export is required.
+
+Also, do not treat every open transaction as an equally old snapshot. A transaction's actual `backend_xmin`, cursor behaviour and isolation level matter. Diagnose the horizon rather than guessing from connection age alone.
+
+## VACUUM is not a database shrink button
+
+A standard `VACUUM` does several jobs:
+
+- makes dead tuple space reusable by future inserts and updates;
+- cleans obsolete index entries when safe;
+- updates the visibility map;
+- freezes old transaction metadata as required to prevent transaction ID wraparound.
+
+It usually does **not** return the table's internal free space to the operating system. A relation can remain the same size on disk after vacuum, even though much of the space is now reusable.
+
+That is deliberate. If a table grows to 80 GB during a busy period and later returns to a steady workload that needs 60 GB, keeping the relation file at 80 GB can avoid repeatedly extending and truncating it. PostgreSQL aims for sustainable reuse, not constant compaction to the smallest possible file.
+
+`VACUUM FULL` is different. It rewrites the table into a new compacted copy and can return space to the filesystem, but it requires an `ACCESS EXCLUSIVE` lock and extra disk space while the rewrite is in progress. It is not the normal cure for routine update churn.
+
+The right question is therefore not "why didn't VACUUM shrink my table?" It is:
+
+- Is vacuum able to remove the dead versions?
+- Is the reclaimed space being reused?
+- Is the relation genuinely larger than its steady-state requirement?
+- Is an old snapshot or replication horizon preventing cleanup?
+
+See PostgreSQL's [routine vacuuming documentation](https://www.postgresql.org/docs/current/routine-vacuuming.html) for the distinction between reuse, visibility-map maintenance and wraparound protection.
+
+### Autovacuum is threshold-driven, not clairvoyant
+
+Autovacuum decides when to process a table using configured thresholds and activity statistics. A simplified update/delete trigger is:
+
+```text
+vacuum threshold
+  = autovacuum_vacuum_threshold
+  + autovacuum_vacuum_scale_factor * estimated table rows
+```
+
+The defaults are not necessarily right for every table. A 100-million-row table with a 20% scale factor can accumulate a very large number of dead tuples before the threshold is crossed. A tiny, frequently updated table may need different settings too.
+
+Table-level storage parameters let you tune hot relations independently:
+
+```sql
+ALTER TABLE event_state SET (
+  autovacuum_vacuum_scale_factor = 0.02,
+  autovacuum_vacuum_threshold = 500
+);
+```
+
+Those values are illustrative, not a universal recommendation. Lower thresholds increase vacuum frequency and I/O. Higher thresholds tolerate more dead space before cleanup. A sensible setting depends on update rate, table size, index count, storage latency and the time vacuum needs to complete.
+
+Most importantly, lowering thresholds does not solve a pinned horizon. Autovacuum can wake up more often and still be unable to remove versions that an old snapshot may need.
+
+## The visibility map: a tiny structure with a big query-planning consequence
+
+Every heap relation has a visibility map (VM). It tracks properties at the heap-page level, including whether all tuples on a page are visible to all transactions and whether they are frozen.
+
+The map is tiny compared with the heap. PostgreSQL can consult it before visiting a heap page during an index-only scan.
+
+Why does that matter?
+
+A normal index entry identifies a heap tuple, but the index does not generally contain enough MVCC visibility information to prove that the tuple is visible to the current snapshot. The executor normally has to visit the heap to check.
+
+An index-only scan can avoid that heap visit when the visibility map says the entire page is all-visible. If the bit is not set, PostgreSQL may still need to fetch the heap tuple to check visibility.
+
+This gives vacuum a second performance role: it does not just create reusable space; it restores the conditions under which index-only scans can avoid heap I/O.
+
+A frequently updated table may have poor all-visible coverage because every data-modifying operation clears the relevant visibility-map state. A long-running snapshot can also delay the point at which vacuum can certify pages as all-visible again.
+
+This is one reason a table can have a seemingly perfect covering index and still perform many heap fetches.
+
+Inspect plans:
+
+```sql
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT customer_id, created_at
+FROM orders
+WHERE customer_id = 42
+ORDER BY created_at DESC
+LIMIT 50;
+```
+
+Look for `Index Only Scan` and the `Heap Fetches` count. A high heap-fetch count means the executor had to visit the heap for visibility checks. It does not automatically prove a vacuum problem, but it is a useful clue when correlated with update churn and visibility-map coverage.
+
+## HOT updates: avoiding index write amplification
+
+PostgreSQL has an important optimisation called Heap-Only Tuples (HOT).
+
+An update can be HOT-eligible when:
+
+1. It does not modify columns referenced by ordinary indexes (with special handling for summarising indexes such as BRIN).
+2. There is enough free space on the same heap page for the new tuple version.
+
+When those conditions hold, PostgreSQL can avoid creating new entries in every affected index. Existing index entries still point to the original tuple's line pointer, which can redirect to the relevant version chain on the heap page.
+
+That is a substantial reduction in write amplification for tables with many indexes.
+
+Consider a table with indexes on `account_id`, `email` and `created_at`, plus an unindexed `last_seen_at` column. Updating only `last_seen_at` can be HOT-eligible if the new tuple fits on the same page.
+
+If you add an index on `last_seen_at` to make a dashboard filter faster, that update path may stop being HOT. Every update to that column can now require index maintenance. The query may become faster while the write workload becomes more expensive.
+
+This is a real design trade-off, not an argument against indexing. Indexes are not free metadata; they influence the physical cost of every update.
+
+A lower table `fillfactor` leaves free space on heap pages and can improve the chance that updated versions fit on the same page:
+
+```sql
+ALTER TABLE account_state SET (fillfactor = 80);
+```
+
+The setting affects future page packing; changing it does not automatically rewrite existing pages. It also trades density for update headroom, so measure the result.
+
+Monitor HOT behaviour:
+
+```sql
+SELECT
+  relname,
+  n_tup_upd,
+  n_tup_hot_upd,
+  round(
+    100.0 * n_tup_hot_upd / NULLIF(n_tup_upd, 0),
+    1
+  ) AS hot_update_percent,
+  n_dead_tup,
+  last_autovacuum
+FROM pg_stat_user_tables
+ORDER BY n_tup_upd DESC
+LIMIT 20;
+```
+
+A falling HOT percentage can be a useful signal after a schema change or index addition. It is not a standalone health score: a table that rarely updates may not need HOT optimisation, and a table can have a low HOT rate for perfectly valid reasons.
+
+The [HOT documentation](https://www.postgresql.org/docs/current/storage-hot.html) explains the eligibility conditions and how line pointers allow index entries to keep referring to the original tuple location.
+
+## The other snapshot holders: replicas and logical decoding
+
+An old transaction is not the only thing that can retain row versions.
+
+### Physical replicas and hot standby feedback
+
+A hot standby can cancel queries when replaying WAL would conflict with the query's snapshot. Enabling `hot_standby_feedback` allows the standby to report its oldest required transaction horizon to the primary, reducing those query cancellations.
+
+The trade-off is that the primary may have to retain dead row versions for the standby. A long-running report on a replica can therefore contribute to table bloat on the primary.
+
+This is a particularly surprising operational connection: a read-only analytics query on a replica can affect storage cleanup on the writer.
+
+### Logical replication slots
+
+A logical replication slot must retain enough information for its consumer to resume decoding changes. Depending on the slot state, `xmin` and `catalog_xmin` can hold back vacuum cleanup of user tuples or catalog tuples.
+
+An inactive slot is not necessarily harmless. If a consumer has been down for weeks, the slot may still retain a large amount of WAL and an old cleanup horizon.
+
+Inspect slots:
+
+```sql
+SELECT
+  slot_name,
+  slot_type,
+  active,
+  xmin,
+  age(xmin) AS xmin_age,
+  catalog_xmin,
+  age(catalog_xmin) AS catalog_xmin_age,
+  restart_lsn,
+  confirmed_flush_lsn
+FROM pg_replication_slots
+ORDER BY GREATEST(
+  COALESCE(age(xmin), 0),
+  COALESCE(age(catalog_xmin), 0)
+) DESC;
+```
+
+Before dropping a slot, confirm that its consumer is genuinely retired. Removing a slot can make required changes unavailable to a downstream consumer; the replica or consumer may need to be rebuilt or resynchronised.
+
+Replication slots also retain WAL through `restart_lsn`. That is a separate disk-growth mechanism from heap tuple retention, even though both can be caused by a lagging consumer.
+
+## Transaction ID wraparound: why freezing is mandatory
+
+PostgreSQL transaction IDs are finite-width values. The traditional 32-bit XID space wraps, so numeric comparison cannot be treated as an ever-increasing integer forever.
+
+PostgreSQL handles this by freezing old tuple transaction metadata once it is safe to regard the inserting transaction as ancient and committed for visibility purposes. A frozen tuple no longer needs its original XID interpreted in the ordinary way.
+
+Vacuum therefore has a safety job beyond reclaiming dead tuples: it must advance the database's freeze horizon before transaction ID wraparound can make old rows appear to be from the future.
+
+This is why autovacuum cannot simply be disabled as a performance tweak. PostgreSQL will still launch anti-wraparound vacuum work when needed, even if ordinary autovacuum settings are disabled.
+
+Monitor the age of the oldest unfrozen transaction IDs:
+
+```sql
+SELECT
+  datname,
+  age(datfrozenxid) AS xid_age
+FROM pg_database
+ORDER BY xid_age DESC;
+```
+
+And at table level:
+
+```sql
+SELECT
+  n.nspname AS schema_name,
+  c.relname AS table_name,
+  age(c.relfrozenxid) AS xid_age
+FROM pg_class AS c
+JOIN pg_namespace AS n ON n.oid = c.relnamespace
+WHERE c.relkind IN ('r', 'm')
+ORDER BY xid_age DESC
+LIMIT 20;
+```
+
+The age is measured in transactions, not days. A quiet database can have a low XID consumption rate; a busy database can age rapidly.
+
+A long-running transaction or replication slot can make it impossible for vacuum to advance the horizon far enough. If wraparound protection is threatened, PostgreSQL emits warnings and eventually refuses new operations that need transaction IDs rather than risk catastrophic visibility errors.
+
+The [routine vacuuming chapter](https://www.postgresql.org/docs/current/routine-vacuuming.html) explains freezing and wraparound protection. Treat those warnings as an availability incident, not as routine maintenance noise.
+
+## A reproducible experiment: pin the horizon
+
+The following lab makes the retention effect visible. Use a disposable PostgreSQL database, not production.
+
+Create a table with enough rows to make repeated updates meaningful:
+
+```sql
+CREATE TABLE mvcc_lab (
+  id bigint PRIMARY KEY,
+  payload text NOT NULL
+) WITH (fillfactor = 80);
+
+INSERT INTO mvcc_lab
+SELECT
+  g,
+  md5(g::text)
+FROM generate_series(1, 100000) AS g;
+
+ANALYZE mvcc_lab;
+```
+
+Open **Session A** and establish a repeatable-read snapshot:
+
+```sql
+BEGIN ISOLATION LEVEL REPEATABLE READ;
+
+SELECT count(*) FROM mvcc_lab;
+```
+
+Leave the transaction open. It has now established a stable snapshot.
+
+In **Session B**, update the rows several times:
+
+```sql
+UPDATE mvcc_lab
+SET payload = md5(payload || clock_timestamp()::text);
+
+UPDATE mvcc_lab
+SET payload = md5(payload || clock_timestamp()::text);
+
+UPDATE mvcc_lab
+SET payload = md5(payload || clock_timestamp()::text);
+```
+
+Then inspect table statistics:
+
+```sql
+SELECT
+  relname,
+  n_live_tup,
+  n_dead_tup,
+  n_tup_upd,
+  n_tup_hot_upd
+FROM pg_stat_user_tables
+WHERE relname = 'mvcc_lab';
+```
+
+Run a manual vacuum in Session B:
+
+```sql
+VACUUM (VERBOSE, ANALYZE) mvcc_lab;
+```
+
+The verbose output should help you see whether dead tuples are removable. Exact counts vary with page layout, transaction timing, autovacuum activity and PostgreSQL version, but the old snapshot should prevent cleanup of versions that it might still need.
+
+Now return to Session A:
+
+```sql
+COMMIT;
+```
+
+Run vacuum again in Session B:
+
+```sql
+VACUUM (VERBOSE, ANALYZE) mvcc_lab;
+```
+
+With the old snapshot released, more obsolete versions can become removable.
+
+The experiment demonstrates an important distinction: the updates committed successfully while Session A was open. MVCC did not block them. The cost appeared later as retained history and delayed cleanup.
+
+You can extend the experiment by comparing `READ COMMITTED` with `REPEATABLE READ`, checking `pg_stat_activity.backend_xmin`, and observing `EXPLAIN (ANALYZE, BUFFERS)` before and after cleanup.
+
+## Production diagnostics: find the retention owner
+
+Start with table churn and vacuum activity:
+
+```sql
+SELECT
+  schemaname,
+  relname,
+  n_live_tup,
+  n_dead_tup,
+  n_tup_upd,
+  n_tup_hot_upd,
+  last_vacuum,
+  last_autovacuum,
+  autovacuum_count
+FROM pg_stat_user_tables
+ORDER BY n_dead_tup DESC
+LIMIT 30;
+```
+
+These are statistics estimates, not an exact physical inventory. Correlate them with relation size, update rate and vacuum logs.
+
+Next, find sessions with old snapshots:
+
+```sql
+SELECT
+  pid,
+  usename,
+  application_name,
+  state,
+  xact_start,
+  now() - xact_start AS transaction_age,
+  backend_xmin,
+  age(backend_xmin) AS xmin_age,
+  wait_event_type,
+  wait_event,
+  left(query, 160) AS query
+FROM pg_stat_activity
+WHERE backend_xmin IS NOT NULL
+ORDER BY age(backend_xmin) DESC;
+```
+
+Look especially for:
+
+- `idle in transaction`;
+- reporting sessions with very old `xact_start`;
+- application names that identify a batch/export worker;
+- sessions with a large `age(backend_xmin)`;
+- a transaction that has finished its useful work but has not committed or rolled back.
+
+`backend_xmin` is often more useful for this investigation than transaction age alone because it exposes the backend's snapshot horizon. A transaction can be old without currently holding the oldest relevant snapshot, and a session can retain a snapshot while doing no visible work.
+
+Check prepared transactions too:
+
+```sql
+SELECT
+  transaction,
+  gid,
+  prepared,
+  owner,
+  database
+FROM pg_prepared_xacts
+ORDER BY prepared;
+```
+
+An abandoned prepared transaction is not an ordinary idle connection. It can retain transaction state and locks until explicitly committed or rolled back.
+
+Inspect replication slots and standby feedback separately. Do not assume every old horizon belongs to an application backend.
+
+Finally, see what vacuum is doing now:
+
+```sql
+SELECT
+  pid,
+  relid::regclass AS relation,
+  phase,
+  heap_blks_scanned,
+  heap_blks_total,
+  index_vacuum_count
+FROM pg_stat_progress_vacuum;
+```
+
+The progress view helps distinguish a vacuum that is actively processing a large relation from one that is not being launched or is repeatedly unable to make the expected cleanup progress.
+
+### A practical incident sequence
+
+When dead tuples and relation size are rising:
+
+1. Identify the tables with the highest update/delete churn.
+2. Compare dead-tuple estimates with relation size and the rate of change.
+3. Inspect `pg_stat_activity.backend_xmin` for old snapshots.
+4. Inspect prepared transactions and replication slots.
+5. Check replica feedback and logical decoding consumer lag.
+6. Inspect autovacuum logs, worker availability and per-table thresholds.
+7. Confirm whether vacuum can remove tuples, not merely whether it ran.
+8. Fix the retention owner before repeatedly increasing vacuum frequency or cost limits.
+
+Do not terminate a backend just because its `xmin` is old. First identify the owning application, transaction semantics and user impact. A report may be intentionally consistent; a prepared transaction may be part of a distributed commit protocol; a replication slot may be serving a critical downstream system.
+
+The right fix is to shorten or release the retention requirement safely, not to delete evidence of it.
+
+## Design implications for application developers
+
+This is not just a DBA concern. Application transaction boundaries directly influence the storage engine's ability to clean up.
+
+### Keep transactions close to the work they protect
+
+Do not open a transaction at the start of an HTTP request and leave it open while calling unrelated services, waiting for user input, or streaming a large response.
+
+Keep the atomic database work together, commit promptly, and perform slow external work outside the transaction when correctness permits. Where a workflow genuinely spans multiple services, use an explicit saga or durable state machine rather than holding a database snapshot open across network calls.
+
+### Make pagination semantics explicit
+
+Offset pagination across many requests does not require one transaction to remain open. Keyset pagination can provide stable ordering with a cursor based on indexed keys. If the product requires a point-in-time export, materialise the selected identifiers or result set, or use a deliberate snapshot/export strategy with a bounded lifetime.
+
+### Treat retries as transaction retries
+
+At `REPEATABLE READ` and `SERIALIZABLE`, a concurrent update can cause a serialization failure. The application must retry the **whole transaction**, not just the final SQL statement, because the logic was evaluated against a snapshot that is no longer valid for the attempted write.
+
+Retries need bounded attempts, backoff and idempotent external effects. A transaction that charges a card or publishes a message must not repeat those side effects merely because its database commit was retried.
+
+### Index design is write-path design
+
+Every index can increase the cost of writes and reduce HOT eligibility when indexed columns change. Add indexes based on measured read benefit, but include update frequency and index maintenance in the cost model.
+
+For frequently updated state tables, ask whether every indexed column really needs to be indexed, whether a partial index is sufficient, and whether fillfactor can preserve HOT opportunities.
+
+## Misconceptions worth retiring
+
+| Misconception | Better model |
+| --- | --- |
+| "MVCC means old rows are overwritten later." | PostgreSQL creates tuple versions; vacuum later reclaims versions no snapshot needs. |
+| "A read-only transaction cannot hurt write performance." | A long-lived snapshot can retain dead tuple versions and delay cleanup. |
+| "Autovacuum ran, so bloat should be gone." | Vacuum may be unable to remove versions behind an old horizon, and standard vacuum usually makes space reusable rather than shrinking the file. |
+| "VACUUM FULL is just a stronger vacuum." | It rewrites the relation, needs an exclusive lock and extra disk space. |
+| "Every open transaction pins the same amount of history." | The actual snapshot horizon matters; inspect `backend_xmin` and other retention sources. |
+| "A replica is read-only, so it cannot affect the primary." | Standby feedback can make the primary retain row versions needed by replica queries. |
+| "An inactive logical slot is harmless." | Its retained `xmin`, `catalog_xmin` and WAL position can still hold back cleanup or WAL recycling. |
+| "An index only affects reads." | Indexes add write work and can prevent HOT updates when indexed columns change. |
+
+## The takeaway
+
+MVCC gives each transaction a coherent view without forcing ordinary readers and writers to take conflicting row locks. The price is historical versions.
+
+Those versions are not disposable merely because a newer row exists. They become reclaimable only when the oldest relevant snapshot and replication horizon have moved beyond them. A forgotten transaction, a slow replica or an abandoned logical slot can therefore turn normal update traffic into persistent storage debt.
+
+When a PostgreSQL table grows unexpectedly, investigate the oldest required view before blindly tuning autovacuum. Find who is retaining history, understand why that retention exists, and shorten or remove it safely.
+
+The deepest operational lesson is simple:
+
+> A transaction is not finished when the application stops caring about it. It is finished when the database is allowed to release the state it was protecting.
+
+## Further reading
+
+- [PostgreSQL MVCC introduction](https://www.postgresql.org/docs/current/mvcc-intro.html) — the multiversion concurrency model.
+- [Transaction isolation](https://www.postgresql.org/docs/current/transaction-iso.html) — statement snapshots, repeatable read, snapshot isolation and serializable behaviour.
+- [Routine vacuuming](https://www.postgresql.org/docs/current/routine-vacuuming.html) — dead tuple cleanup, visibility maps, autovacuum and transaction ID wraparound.
+- [Heap-Only Tuples (HOT)](https://www.postgresql.org/docs/current/storage-hot.html) — when updates can avoid new index entries.
+- [Database page layout](https://www.postgresql.org/docs/current/storage-page-layout.html) — heap pages, item identifiers and tuple placement.
+- [Cumulative statistics system](https://www.postgresql.org/docs/current/monitoring-stats.html) — `pg_stat_activity`, table statistics and vacuum progress.
+- [Replication slots](https://www.postgresql.org/docs/current/view-pg-replication-slots.html) — `xmin`, `catalog_xmin` and WAL retention.
+- [Transaction ID information functions](https://www.postgresql.org/docs/current/functions-info.html) — `age()` and snapshot-related functions.
+- [Serializable Snapshot Isolation in PostgreSQL](https://www.vldb.org/pvldb/vol5/p1850_danrkports_vldb2012.pdf) — Ports and Grittner's paper on PostgreSQL's SSI implementation.
