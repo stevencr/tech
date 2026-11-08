@@ -172,7 +172,7 @@ You may not see what you type while echo is disabled. A safer pattern in shell e
 
 ~~~bash
 saved=$(stty -g)
-trap 'stty "$saved"' EXIT INT TERM
+trap 'stty "$saved"' EXIT
 
 stty -echo
 printf 'Echo is disabled; press Enter when ready.\n'
@@ -481,15 +481,18 @@ The background `cat` attempts to read from the controlling terminal. It should s
 Now test background writes in a subshell:
 
 ~~~bash
+saved=$(stty -g)
+stty tostop
 (
-  saved=$(stty -g)
-  trap 'stty "$saved"' EXIT
-  stty tostop
   while :; do
     printf 'background output\n'
     sleep 1
   done
 ) &
+jobs -l
+# After the writer stops, restore the mode from the foreground shell:
+stty "$saved"
+kill %1
 ~~~
 
 With `TOSTOP` enabled, the background writer can be stopped when it writes to the terminal. Use `jobs -l` to inspect it. Restore normal settings with `stty sane` if necessary, then clean up the job.
@@ -501,7 +504,7 @@ Run this carefully in an interactive terminal:
 ~~~bash
 (
   saved=$(stty -g)
-  trap 'stty "$saved"' EXIT INT TERM
+  trap 'stty "$saved"' EXIT
   stty -icanon -echo min 1 time 0
   printf 'Press one key: '
   dd bs=1 count=1 2>/dev/null | od -An -tx1
@@ -540,7 +543,7 @@ python3 -c 'import os,sys; print("stdin:", os.isatty(0), "stdout:", os.isatty(1)
 
 The first invocation normally reports terminal file descriptors. In the pipeline, standard output is a pipe. If you redirect input as well, standard input changes too.
 
-For a quick PTY wrapper around a command, try:
+On Linux systems using util-linux, a quick PTY wrapper around a command is:
 
 ~~~bash
 script -q -c 'tty; stty -a' /dev/null
