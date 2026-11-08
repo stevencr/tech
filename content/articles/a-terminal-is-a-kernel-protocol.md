@@ -87,7 +87,7 @@ On Linux, a modern UNIX 98 PTY is allocated through the master clone device `/de
 4. Obtain its name with `ptsname()`.
 5. Open the slave device.
 
-The details are handled by libraries in most applications. Python exposes a convenient interface through `pty.openpty()` and `pty.fork()`. C programs commonly use `openpty()` or the lower-level UNIX 98 calls.
+The details are handled by libraries in most applications. Python exposes a convenient interface through `pty.openpty()` and `pty.fork()`. C programs commonly use `openpty()` or the lower-level UNIX 98 calls.\n\nTo launch a child with a controlling terminal, the controller normally keeps the master open while the child establishes a session, acquires the slave as its controlling terminal, duplicates the slave onto file descriptors 0, 1 and 2, and then executes the target program. A plain file descriptor pointing at a PTY slave is not, by itself, the same thing as having that device assigned as the process's controlling terminal. Helpers such as `forkpty()` and Python's `pty.fork()` encapsulate much of this setup.\n\nLinux also exposes the current number of UNIX 98 PTYs and the configured maximum through `/proc/sys/kernel/pty/nr` and `/proc/sys/kernel/pty/max`. PTY exhaustion is worth checking when a host or container platform creates many interactive sessions.
 
 A PTY is not a pipe with a funny name. It has terminal attributes, a window size, foreground process-group state, special-character handling and hangup semantics. A program that checks whether a file descriptor is a terminal can distinguish it from a pipe.
 
@@ -152,7 +152,7 @@ The four common combinations are:
 | 0 | Greater than 0 | Wait for input up to the timeout, then return |
 | Greater than 0 | Greater than 0 | After the first byte, use an inter-byte timer while waiting for the minimum |
 
-This is more subtle than simply saying "raw mode reads one key at a time". The application chooses a policy for how much input is enough and how long it is willing to wait.
+This is more subtle than simply saying "raw mode reads one key at a time". The application chooses a policy for how much input is enough and how long it is willing to wait. If `O_NONBLOCK` is set, a read may return immediately regardless of `VMIN` and `VTIME`; nonblocking file status adds another layer to the read contract.
 
 ### Echo is a kernel feature, not a shell feature
 
@@ -179,7 +179,7 @@ printf 'Echo is disabled; press Enter when ready.\n'
 read -r ignored
 ~~~
 
-The trap restores the saved state when the shell exits normally or receives the listed signals. In production terminal applications, restoration should be handled carefully across all exit paths, including exceptions and termination.
+The EXIT trap restores the saved state when the subshell exits. It cannot protect against uncatchable termination such as `SIGKILL` or a machine failure. In production terminal applications, restoration should be handled carefully across normal exit paths, exceptions and catchable signals.
 
 ### Ctrl-C is usually interpreted before the application reads it
 
