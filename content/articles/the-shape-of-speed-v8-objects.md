@@ -11,7 +11,7 @@ tags: [javascript, v8, jit, inline-caches, deoptimization, performance]
 
 A JavaScript object is wonderfully unconstrained. You can create it with two properties, add a third later, delete the first, replace a number with a string, attach a getter, or change its prototype. The language has to preserve the semantics of all those operations.
 
-A JavaScript engine, meanwhile, would much rather load a value from a known memory offset than perform a general-purpose property lookup every time your code evaluates \`point.x\`.
+A JavaScript engine, meanwhile, would much rather load a value from a known memory offset than perform a general-purpose property lookup every time your code evaluates `point.x`.
 
 V8 bridges that gap with a collection of runtime techniques: **Maps (historically called HiddenClasses), transition trees, inline caches, feedback vectors, speculative JIT compilation and deoptimization**. Together, they let a dynamic language behave surprisingly like a statically laid-out one when the observed program is predictable.
 
@@ -35,7 +35,7 @@ delete point.y;
 point.x = "ten";
 ~~~
 
-At the language level, the object is a collection of properties. Property access must respect the rules for own properties, descriptors, accessors, prototypes, proxies and missing properties. A lookup of \`point.x\` is not guaranteed to be a simple memory read.
+At the language level, the object is a collection of properties. Property access must respect the rules for own properties, descriptors, accessors, prototypes, proxies and missing properties. A lookup of `point.x` is not guaranteed to be a simple memory read.
 
 For example, a property might be inherited:
 
@@ -47,7 +47,7 @@ point._x = 10;
 console.log(point.x); // 20
 ~~~
 
-Or the receiver might be a Proxy whose \`get\` trap runs arbitrary JavaScript. An engine cannot replace every property access with an unchecked pointer offset without changing observable behaviour.
+Or the receiver might be a Proxy whose `get` trap runs arbitrary JavaScript. An engine cannot replace every property access with an unchecked pointer offset without changing observable behaviour.
 
 Yet most application code does something much more regular:
 
@@ -57,13 +57,13 @@ function distanceFromOrigin(point) {
 }
 ~~~
 
-In a typical geometry workload, \`point\` is likely to be an ordinary object with the same two own properties every time. If the engine can establish that fact at this particular access site, it can avoid repeating the full dynamic lookup.
+In a typical geometry workload, `point` is likely to be an ordinary object with the same two own properties every time. If the engine can establish that fact at this particular access site, it can avoid repeating the full dynamic lookup.
 
 The optimisation problem is therefore not "make JavaScript objects static". It is "recognise stable patterns at runtime, exploit them, and retain a correct fallback".
 
 ## 2. A Map is a runtime description of object shape
 
-V8 associates ordinary heap objects with an internal structure called a **Map**. Older material commonly calls it a HiddenClass. This is not the JavaScript \`Map\` collection type; it is engine metadata describing an object's layout and other structural information.
+V8 associates ordinary heap objects with an internal structure called a **Map**. Older material commonly calls it a HiddenClass. This is not the JavaScript `Map` collection type; it is engine metadata describing an object's layout and other structural information.
 
 A Map contains or refers to information needed to interpret the object: its prototype, property descriptors, layout details and transitions to related Maps. The important point is that the engine can use a compact identity check to recognise a familiar shape.
 
@@ -83,7 +83,7 @@ const first = { x: 1, y: 2 };
 const second = { y: 4, x: 3 };
 ~~~
 
-The objects have the same property names, but the sequence of additions differs. V8's transition machinery can produce different Maps for those shapes. The offset associated with \`x\` need not be the same in both layouts.
+The objects have the same property names, but the sequence of additions differs. V8's transition machinery can produce different Maps for those shapes. The offset associated with `x` need not be the same in both layouts.
 
 This is why "these objects have the same fields" is not a precise enough description when reasoning about V8. The order and way in which properties are introduced matter, as do descriptors and prototype-related details.
 
@@ -95,9 +95,9 @@ Conceptually, start with an empty shape:
 
 ~~~text
              Empty
-             /   \\
+             /   \
            +x     +y
-           /       \\
+           /       \
         {x}         {y}
          |           |
         +y          +x
@@ -105,7 +105,7 @@ Conceptually, start with an empty shape:
        {x,y}       {y,x}
 ~~~
 
-The diagram is simplified, but it captures the idea. Adding \`x\` to the empty shape follows one transition. Adding \`y\` afterwards follows another. A different order follows a different branch.
+The diagram is simplified, but it captures the idea. Adding `x` to the empty shape follows one transition. Adding `y` afterwards follows another. A different order follows a different branch.
 
 When compatible objects follow the same path, they can converge on and share the same final Map. This sharing is the foundation for fast property access.
 
@@ -143,9 +143,9 @@ function readX(value) {
 }
 ~~~
 
-The expression \`value.x\` is a property-load site. The first time it runs, V8 may need to perform the normal lookup. It can then record the receiver's Map and a handler describing how to retrieve \`x\`.
+The expression `value.x` is a property-load site. The first time it runs, V8 may need to perform the normal lookup. It can then record the receiver's Map and a handler describing how to retrieve `x`.
 
-On a later execution, if the receiver has the expected Map, the engine can use that recorded handler. Instead of rediscovering where \`x\` lives, it checks the shape and follows the known access path.
+On a later execution, if the receiver has the expected Map, the engine can use that recorded handler. Instead of rediscovering where `x` lives, it checks the shape and follows the known access path.
 
 A simplified fast path looks like this:
 
@@ -180,7 +180,7 @@ function logX(value) {
 }
 ~~~
 
-The fact that \`readX\` has only ever seen one shape does not mean the access in \`logX\` has the same history. Each site can gather its own feedback.
+The fact that `readX` has only ever seen one shape does not mean the access in `logX` has the same history. Each site can gather its own feedback.
 
 In V8, feedback for bytecode operations is stored in a **FeedbackVector** associated with a function. Its slots correspond to operations that can collect feedback. An inline cache is one of the mechanisms that uses this information.
 
@@ -246,9 +246,9 @@ function totalX(points) {
 }
 ~~~
 
-If feedback says the property access almost always sees the same shape, the compiler can specialise the load. Conceptually, the generated code may check the receiver's Map and then load \`x\` from a fixed offset.
+If feedback says the property access almost always sees the same shape, the compiler can specialise the load. Conceptually, the generated code may check the receiver's Map and then load `x` from a fixed offset.
 
-It can also specialise the addition if the observed values support that assumption. For example, if feedback indicates small integers, the compiler may generate integer-oriented arithmetic rather than preserving every possible behaviour of JavaScript's \`+\` operator.
+It can also specialise the addition if the observed values support that assumption. For example, if feedback indicates small integers, the compiler may generate integer-oriented arithmetic rather than preserving every possible behaviour of JavaScript's `+` operator.
 
 Why is this legal? Because the fast path is guarded. If the receiver has an unexpected shape or the value violates an assumption, execution can leave the optimised path and continue in code that preserves full JavaScript semantics.
 
@@ -339,7 +339,7 @@ const packed = [1, 2, 3];
 const holey = [1, , 3];
 ~~~
 
-The missing entry in \`holey\` is not simply the same thing as an explicit \`undefined\` value:
+The missing entry in `holey` is not simply the same thing as an explicit `undefined` value:
 
 ~~~js
 const explicit = [1, undefined, 3];
@@ -361,7 +361,7 @@ sparse[1000000] = "last";
 
 Allocating a dense backing store for every index up to one million would be wasteful. Dictionary-style elements can be a better representation for sparse data, even though lookup has different costs.
 
-The practical lesson is not "never create a hole" or "never mix number and string values". It is that array operations have different fast paths depending on the representation. The semantics of sparse arrays, inherited indices and explicit \`undefined\` values are not interchangeable.
+The practical lesson is not "never create a hole" or "never mix number and string values". It is that array operations have different fast paths depending on the representation. The semantics of sparse arrays, inherited indices and explicit `undefined` values are not interchangeable.
 
 V8's [Fast properties article](https://v8.dev/blog/fast-properties) covers the distinction between named properties and elements, including packed, holey, numeric and dictionary representations.
 
@@ -380,7 +380,7 @@ Node embeds a particular V8 revision. Chrome, Node and other embedders do not ne
 
 ### 7.1 Build two populations of objects
 
-Save this as \`shape-lab.mjs\`:
+Save this as `shape-lab.mjs`:
 
 ~~~js
 function makePoint(x, y) {
@@ -446,7 +446,7 @@ node shape-lab.mjs
 
 The two populations contain the same logical data, but their construction paths differ. The stable population follows one property-addition order. The mixed population alternates between two orders.
 
-At the \`point.x\` access site, V8 may observe one Map in the first workload and multiple Maps in the second. The engine's response depends on the exact V8 version, tiering decisions and the rest of the program.
+At the `point.x` access site, V8 may observe one Map in the first workload and multiple Maps in the second. The engine's response depends on the exact V8 version, tiering decisions and the rest of the program.
 
 Do not treat the elapsed times from one run as proof. The experiment is designed to make the shape difference visible, not to produce a portable benchmark result.
 
@@ -466,7 +466,7 @@ node --trace-opt --trace-deopt shape-lab.mjs
 
 The output can show functions becoming optimised and reasons for leaving optimised code. It is diagnostic output, not a stable machine-readable interface. Some V8 builds expose additional map or inline-cache tracing options; use the output from your own binary rather than assuming a flag exists.
 
-For lower-level inspection, a V8 shell build (\`d8\`) or a Node binary built with suitable debugging support can expose internal intrinsics and object diagnostics. These are useful for learning, but they are not APIs to ship in application code.
+For lower-level inspection, a V8 shell build (`d8`) or a Node binary built with suitable debugging support can expose internal intrinsics and object diagnostics. These are useful for learning, but they are not APIs to ship in application code.
 
 ### 7.3 Run a second experiment with optional fields
 
@@ -493,13 +493,13 @@ function withOptionalSometimesPresent(id, label) {
 
 The first function always introduces the same property sequence. The second creates two structural outcomes depending on the input.
 
-Using \`null\` here is only an example. It is not a universal replacement for an absent property: the distinction between an absent property, a present property containing \`undefined\`, and a present property containing \`null\` can be observable through \`in\`, \`Object.hasOwn\`, enumeration, serialisation and application logic.
+Using `null` here is only an example. It is not a universal replacement for an absent property: the distinction between an absent property, a present property containing `undefined`, and a present property containing `null` can be observable through `in`, `Object.hasOwn`, enumeration, serialisation and application logic.
 
 If the domain model genuinely has two different shapes, represent that honestly. The optimisation goal is not to erase meaningful distinctions. It is to avoid accidental shape variation caused by incidental construction order or mutation.
 
 ### 7.4 Change the access site, not just the data
 
-Try calling \`readX\` with many different kinds of objects: a class instance, a plain object, an object with a getter, and one with a different prototype.
+Try calling `readX` with many different kinds of objects: a class instance, a plain object, an object with a getter, and one with a different prototype.
 
 The same source expression can require different handlers because JavaScript property access is richer than "read slot number two". The engine must preserve getter calls, prototype lookup and proxy behaviour.
 
@@ -546,7 +546,7 @@ class Trade {
 }
 ~~~
 
-A later mutation that adds \`result\` only for settled trades creates a different shape for those objects. If settled and pending trades are both processed by the same hot function, that may make the access site polymorphic.
+A later mutation that adds `result` only for settled trades creates a different shape for those objects. If settled and pending trades are both processed by the same hot function, that may make the access site polymorphic.
 
 An always-present field can be a reasonable representation when the domain model supports it. But adding dozens of meaningless placeholders just to chase a monomorphic IC is not a good design. Memory footprint, clarity and semantics matter too.
 
@@ -570,7 +570,7 @@ const work = [
 
 A dispatcher that handles all three variants may encounter different Maps and different property-access patterns.
 
-A discriminated union is still a good design. It makes the variants explicit and lets the code branch on \`kind\`. If a hot path needs to read fields common to all variants, consider whether a shared envelope or a variant-specific handler is a better architecture.
+A discriminated union is still a good design. It makes the variants explicit and lets the code branch on `kind`. If a hot path needs to read fields common to all variants, consider whether a shared envelope or a variant-specific handler is a better architecture.
 
 Do not flatten every domain model into one enormous object. The aim is to make the hot access patterns coherent, not to eliminate legitimate polymorphism.
 
@@ -588,7 +588,7 @@ The same principles can apply in UI applications. Components often process props
 
 But keep this in proportion. React rendering performance is also affected by reconciliation, component boundaries, memoisation, allocation, DOM work, scheduling and browser layout. A stable V8 Map does not make an expensive render cheap.
 
-Similarly, \`React.memo\` and referential equality are not the same thing as V8 object-shape optimisation. One is a framework-level decision about whether to reuse rendered work; the other is an engine-level strategy for implementing operations on objects.
+Similarly, `React.memo` and referential equality are not the same thing as V8 object-shape optimisation. One is a framework-level decision about whether to reuse rendered work; the other is an engine-level strategy for implementing operations on objects.
 
 Use a CPU profile and realistic interaction traces before attributing a React performance problem to hidden classes.
 
@@ -607,7 +607,7 @@ A benchmark can accidentally measure:
 
 A more disciplined experiment should:
 
-1. Record the Node version and \`process.versions.v8\`.
+1. Record the Node version and `process.versions.v8`.
 2. Keep the function under test identical between cases.
 3. Warm the exact access site with representative inputs.
 4. Separate setup and allocation from the timed section where possible.
@@ -675,4 +675,4 @@ The most useful question is not "How do I make every object monomorphic?" It is:
 - [V8: Maglev, a fast mid-tier JIT](https://v8.dev/blog/maglev) — why V8 uses multiple compilation tiers.
 - [V8: Sparkplug](https://v8.dev/blog/sparkplug) — fast baseline compilation from bytecode.
 - [V8 source documentation: Deoptimization](https://chromium.googlesource.com/v8/v8/+/main/docs/runtime/deoptimization.md) — guards, frame translation and eager versus lazy deopts.
-- [Node.js command-line documentation](https://nodejs.org/api/cli.html) — runtime options and the \`--v8-options\` entry point for inspecting the flags supported by a particular build.
+- [Node.js command-line documentation](https://nodejs.org/api/cli.html) — runtime options and the `--v8-options` entry point for inspecting the flags supported by a particular build.
